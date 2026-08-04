@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BS BINMAP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="header-left">
+            <div class="logo-container">
+                <svg class="trash-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+                <span class="brand-name">BS BINMAP</span>
+            </div>
+        </div>
+        <div class="header-right">
+<div class="auth-buttons">
+                    <a href="login.html" class="btn-login">Log in</a>
+                    <a href="signup.html" class="btn-signup">Sign Up</a>
+                </div>
+        </div>
+    </header>
+
+    <main class="content-area">
+        <div class="main-container">
+            
+            <div class="map-card">
+                <div id="map"></div>
+
+                <button id="addBinModeBtn" title="โหมดเพิ่มจุดทิ้งขยะใหม่">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>เพิ่มถังขยะ</span>
+                </button>
+                
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <div class="marker-icon green"></div>
+                        <span class="legend-text">ขยะเปียก </span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="marker-icon yellow"></div>
+                        <span class="legend-text">ขยะรีไซเคิล</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="marker-icon blue"></div>
+                        <span class="legend-text">ขยะทั่วไป</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="marker-icon red"></div>
+                        <span class="legend-text">ขยะอันตราย</span>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="sidebar">
+                
+                <div id="sidebarPlaceholder">
+                    <h2>BS BINMAP</h2>
+                    <p>คลิกเลือก Marker เพื่อดูรายละเอียด<br>
+                </div>
+
+                <div id="sidebarContent">
+                    <div class="sidebar-header-title">
+                        <h3 id="binTitle">-</h3>
+                        <button class="close-sidebar-btn" title="ปิดข้อมูล">&times;</button>
+                    </div>
+
+                    <img id="binImage" class="sidebar-image" src="" alt="Bin Image">
+
+                    <div class="info-group-box">
+                        <div class="info-row">
+                            <span class="info-label">ประเภท</span>
+                            <span class="info-text" id="binType">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">สีของถัง</span>
+                            <span class="info-text" id="binColor">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">สถานที่</span>
+                            <span class="info-text" id="binLocation">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">อัปเดตล่าสุด</span>
+                            <span class="info-text" id="binUpdate">-</span>
+                        </div>
+                    </div>
+
+                    <div class="combined-feedback-box">
+                        <h4>ความคิดเห็น</h4>
+                        <div id="binComments"></div>
+                                <div class="inline-contribution">
+                                    <input type="text" class="report-input" placeholder="พิมพ์ความคิดเห็น หรือรายงานปัญหาถังขยะ...">
+                                    <div class="action-buttons-group">
+                                        <button class="upload-btn" id="uploadImageBtn">📸 อัปโหลดรูปภาพ</button>
+                                        <button class="submit-report-btn">ส่งรายงาน</button>
+                                    </div>
+                                    <input type="file" id="imageInput" style="display: none;" accept="image/*">
+                                    <div id="imagePreviewContainer" class="image-preview-container" style="position: relative; margin-top: 10px; display: none; justify-content: center; align-items: center; background: #f0f0f0; border-radius: 12px; padding: 5px;">
+                                        <img id="imagePreview" src="" style="max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 2px solid var(--primary-light);">
+                                        <button id="removeImageBtn" style="position: absolute; top: -10px; right: -10px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">&times;</button>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+
+            </aside>
+
+        </div>
+    </main>
+
+    <div id="addBinModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>➕ เพิ่มจุดทิ้งขยะใหม่</h3>
+                <button id="closeModalBtn" class="close-modal-x">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>ประเภทขยะ</label>
+                    <select id="newBinType" class="report-input" style="width:100%; height:36px; background:white; font-family:inherit;">
+                        <option value="ขยะเปียก">ขยะเปียก</option>
+                        <option value="ขยะรีไซเคิล" selected>ขยะรีไซเคิล</option>
+                        <option value="ขยะทั่วไป">ขยะทั่วไป</option>
+                        <option value="ขยะอันตราย">ขยะอันตราย</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>คำอธิบายสถานที่ตั้ง</label>
+                    <input type="text" id="newBinLocation" class="report-input" placeholder="ตัวอย่าง: ข้างประตูทางเข้าขวาฝั่งโรงอาหาร">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveBinBtn" class="submit-report-btn modal-submit-btn">💾 บันทึกจุดทิ้งขยะใหม่</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Viewer Modal -->
+    <div id="imageViewerModal" class="image-viewer-backdrop">
+        <div class="image-viewer-container">
+            <img id="fullImage" src="" alt="Full View">
+            <button class="close-viewer-btn">&times;</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+</body>
+</html>
