@@ -6,11 +6,29 @@
     <title>BS BINMAP</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+    <!-- Location Permission Modal -->
+    <div id="locationModal" class="location-modal-backdrop" style="display: none;">
+        <div class="location-modal">
+            <div class="location-modal-icon">📍</div>
+            <h3>อนุญาตการเข้าถึงตำแหน่ง</h3>
+            <p>ระบบต้องการรู้ตำแหน่งปัจจุบันของคุณ<br>เพื่อแสดงถังขยะที่ใกล้ที่สุดบนแผนที่<br>และบันทึกเหตุการณ์ร้องเรียนในพื้นที่ของคุณ</p>
+            <div class="location-modal-steps">
+                <div class="location-step-dot"></div>
+                <div class="location-step-line"></div>
+                <div class="location-step-dot inactive"></div>
+            </div>
+            <div class="location-modal-buttons">
+                <button class="location-modal-btn deny" id="locationDenyBtn">ไม่อนุญาต</button>
+                <button class="location-modal-btn allow" id="locationAllowBtn">อนุญาต</button>
+            </div>
+        </div>
+    </div>
 
     <header class="main-header">
         <div class="header-left">
@@ -21,131 +39,145 @@
                 <span class="brand-name">BS BINMAP</span>
             </div>
         </div>
-        <div class="header-right">
-<div class="auth-buttons">
-                    <a href="login.html" class="btn-login">Log in</a>
-                    <a href="signup.html" class="btn-signup">Sign Up</a>
+
+        <div class="header-center">
+            <div class="ai-search-box">
+                <span class="ai-search-icon">🔍 🤖</span>
+                <input type="text" id="aiSearchInput" class="ai-search-input" placeholder="หาถังขยะใกล้โรงอาหาร" autocomplete="off">
+                <button id="aiSearchBtn" class="ai-search-btn" aria-label="ค้นหา"><span class="ai-search-btn-label">ค้นหา</span><span class="ai-search-spinner"></span></button>
+            </div>
+
+            <div id="aiSuggestions" class="ai-suggestions">
+                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้โรงอาหาร">🗑️ ถังใกล้โรงอาหาร</button>
+                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้สนามฟุตบอล">⚽ ถังใกล้สนามฟุตบอล</button>
+                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้สนามบาส">🏀 ถังใกล้สนามบาส</button>
+                <button class="ai-suggest-chip" data-query="หาถังรีไซเคิล">♻️ หาถังรีไซเคิล</button>
+            </div>
+
+            <div id="aiResult" class="ai-result" style="display:none;">
+                <div class="ai-result-icon">🤖</div>
+                <div class="ai-result-body">
+                    <span class="ai-result-title">BS BINMAP AI</span>
+                    <span class="ai-result-text"></span>
                 </div>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <div class="auth-buttons">
+                <a href="login.html" class="btn-login">Log in</a>
+                <a href="signup.html" class="btn-signup">Sign Up</a>
+            </div>
         </div>
     </header>
 
     <main class="content-area">
         <div class="main-container">
-            
+
             <div class="map-card">
                 <div id="map"></div>
 
-                <button id="addBinModeBtn" title="โหมดเพิ่มจุดทิ้งขยะใหม่">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>เพิ่มถังขยะ</span>
-                </button>
-                
+                <!-- Floating Legend -->
                 <div class="map-legend">
+                    <div class="legend-title">ประเภทถังขยะ</div>
                     <div class="legend-item">
-                        <div class="marker-icon green"></div>
-                        <span class="legend-text">ขยะเปียก </span>
+                        <span class="marker-chips">
+                            <span class="marker-chip green"><span class="marker-dot"></span>ขยะเปียก (Wet)</span>
+                        </span>
                     </div>
                     <div class="legend-item">
-                        <div class="marker-icon yellow"></div>
-                        <span class="legend-text">ขยะรีไซเคิล</span>
+                        <span class="marker-chips">
+                            <span class="marker-chip yellow"><span class="marker-dot"></span>ขยะรีไซเคิล (Recycle)</span>
+                        </span>
                     </div>
                     <div class="legend-item">
-                        <div class="marker-icon blue"></div>
-                        <span class="legend-text">ขยะทั่วไป</span>
+                        <span class="marker-chips">
+                            <span class="marker-chip blue"><span class="marker-dot"></span>ขยะทั่วไป (General)</span>
+                        </span>
                     </div>
                     <div class="legend-item">
-                        <div class="marker-icon red"></div>
-                        <span class="legend-text">ขยะอันตราย</span>
+                        <span class="marker-chips">
+                            <span class="marker-chip red"><span class="marker-dot"></span>ขยะอันตราย (Hazardous)</span>
+                        </span>
                     </div>
+                </div>
+
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="map-ctl-btn" id="zoomInBtn" title="ขยาย">+</button>
+                    <button class="map-ctl-btn" id="zoomOutBtn" title="ย่อ">−</button>
+                    <button class="map-ctl-btn" id="locateBtn" title="ตำแหน่งของฉัน">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L12 22M2 12L22 12M5.636 5.636L18.364 18.364M18.364 5.636L5.636 18.364" /></svg>
+                    </button>
                 </div>
             </div>
 
-            <aside class="sidebar">
-                
+            <!-- Sidebar / Bin Detail Panel -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-drag-handle" id="sidebarDragHandle"></div>
                 <div id="sidebarPlaceholder">
+                    <div class="ph-icon">🗑️</div>
                     <h2>BS BINMAP</h2>
-                    <p>คลิกเลือก Marker เพื่อดูรายละเอียด<br>
+                    <p>คลิกเลือก Marker เพื่อดูรายละเอียด</p>
                 </div>
 
                 <div id="sidebarContent">
-                    <div class="sidebar-header-title">
-                        <h3 id="binTitle">-</h3>
+                    <div class="sidebar-header">
+                        <div class="sidebar-title-group">
+                            <div class="sidebar-bin-ico">🗑️</div>
+                            <div>
+                                <h3 id="binTitle">ถังขยะ</h3>
+                            </div>
+                        </div>
                         <button class="close-sidebar-btn" title="ปิดข้อมูล">&times;</button>
                     </div>
 
-                    <img id="binImage" class="sidebar-image" src="" alt="Bin Image">
+                    <div class="sidebar-scroll">
+                        <div class="sidebar-image-wrap">
+                            <img id="binImage" class="sidebar-image" src="" alt="Bin Image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="sidebar-image-placeholder" style="display:none; width:100%; height:200px; background:var(--map-tint); border-radius:var(--radius-lg); align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+                                <span style="font-size:2rem;">🗑️</span>
+                                <span style="font-size:0.82rem; color:var(--text-muted); font-weight:500;">ไม่มีรูปภาพ</span>
+                            </div>
+                        </div>
 
-                    <div class="info-group-box">
-                        <div class="info-row">
-                            <span class="info-label">ประเภท</span>
-                            <span class="info-text" id="binType">-</span>
+                        <div class="info-group-box">
+                            <div class="info-row">
+                                <span class="info-label">ประเภทถังขยะ</span>
+                                <span class="info-text value-pill" id="binType">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">สถานที่</span>
+                                <span class="info-text" id="binLocation">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">อัปเดตล่าสุด</span>
+                                <span class="info-text" id="binUpdate">-</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">สีของถัง</span>
-                            <span class="info-text" id="binColor">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">สถานที่</span>
-                            <span class="info-text" id="binLocation">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">อัปเดตล่าสุด</span>
-                            <span class="info-text" id="binUpdate">-</span>
-                        </div>
-                    </div>
 
-                    <div class="combined-feedback-box">
-                        <h4>ความคิดเห็น</h4>
-                        <div id="binComments"></div>
-                                <div class="inline-contribution">
-                                    <input type="text" class="report-input" placeholder="พิมพ์ความคิดเห็น หรือรายงานปัญหาถังขยะ...">
-                                    <div class="action-buttons-group">
-                                        <button class="upload-btn" id="uploadImageBtn">📸 อัปโหลดรูปภาพ</button>
-                                        <button class="submit-report-btn">ส่งรายงาน</button>
-                                    </div>
-                                    <input type="file" id="imageInput" style="display: none;" accept="image/*">
-                                    <div id="imagePreviewContainer" class="image-preview-container" style="position: relative; margin-top: 10px; display: none; justify-content: center; align-items: center; background: #f0f0f0; border-radius: 12px; padding: 5px;">
-                                        <img id="imagePreview" src="" style="max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 2px solid var(--primary-light);">
-                                        <button id="removeImageBtn" style="position: absolute; top: -10px; right: -10px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">&times;</button>
-                                    </div>
+                        <div class="combined-feedback-box">
+                            <h4>ความคิดเห็น</h4>
+                            <div id="binComments"></div>
+                            <div class="inline-contribution">
+                                <input type="text" class="report-input" placeholder="พิมพ์ความคิดเห็น หรือรายงานปัญหาถังขยะ...">
+                                <div class="action-buttons-group">
+                                    <button class="upload-btn" id="uploadImageBtn">📷 อัปโหลดรูปภาพ</button>
+                                    <button class="submit-report-btn">โพสต์ความคิดเห็น</button>
                                 </div>
+                                <input type="file" id="imageInput" style="display: none;" accept="image/*">
+                                <div id="imagePreviewContainer" class="image-preview-container" style="position: relative; margin-top: 10px; display: none; justify-content: center; align-items: center; background: #f0f0f0; border-radius: 12px; padding: 5px;">
+                                    <img id="imagePreview" src="" style="max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 2px solid var(--primary-green);">
+                                    <button id="removeImageBtn" style="position: absolute; top: -10px; right: -10px; background: rgba(244,67,54,0.9); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">&times;</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
             </aside>
 
         </div>
     </main>
-
-    <div id="addBinModal" class="modal-backdrop" style="display: none;">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h3>➕ เพิ่มจุดทิ้งขยะใหม่</h3>
-                <button id="closeModalBtn" class="close-modal-x">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>ประเภทขยะ</label>
-                    <select id="newBinType" class="report-input" style="width:100%; height:36px; background:white; font-family:inherit;">
-                        <option value="ขยะเปียก">ขยะเปียก</option>
-                        <option value="ขยะรีไซเคิล" selected>ขยะรีไซเคิล</option>
-                        <option value="ขยะทั่วไป">ขยะทั่วไป</option>
-                        <option value="ขยะอันตราย">ขยะอันตราย</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>คำอธิบายสถานที่ตั้ง</label>
-                    <input type="text" id="newBinLocation" class="report-input" placeholder="ตัวอย่าง: ข้างประตูทางเข้าขวาฝั่งโรงอาหาร">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="saveBinBtn" class="submit-report-btn modal-submit-btn">💾 บันทึกจุดทิ้งขยะใหม่</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Image Viewer Modal -->
     <div id="imageViewerModal" class="image-viewer-backdrop">
