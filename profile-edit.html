@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แก้ไขโปรไฟล์ - BS BINMAP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <a href="profile.html" class="profile-back-link">&larr; กลับ</a>
+            <h2>แก้ไขโปรไฟล์</h2>
+            <form class="auth-form" id="editProfileForm">
+                <div class="auth-field">
+                    <label for="editName">ชื่อเต็ม</label>
+                    <input type="text" id="editName" class="auth-input" placeholder="กรอกชื่อเต็ม" required>
+                </div>
+                <div class="auth-field">
+                    <label for="editEmail">อีเมล</label>
+                    <input type="email" id="editEmail" class="auth-input" placeholder="example@email.com" disabled>
+                    <span class="field-hint">ไม่สามารถเปลี่ยนอีเมลได้</span>
+                </div>
+                <div class="auth-field">
+                    <label for="newPassword">รหัสผ่านใหม่ (ปล่อยว่างหากไม่ต้องการเปลี่ยน)</label>
+                    <input type="password" id="newPassword" class="auth-input" placeholder="••••••••">
+                </div>
+                <div class="auth-field">
+                    <label for="confirmPassword">ยืนยันรหัสผ่านใหม่</label>
+                    <input type="password" id="confirmPassword" class="auth-input" placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-auth-submit" id="saveProfileBtn">บันทึกการแก้ไข</button>
+            </form>
+            <div id="profileSaveStatus" class="profile-save-status" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://oxmbkykllivbwgfwqctb.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_GQ7oPb-T9han1h1I8Bs6Fg_VQaFLaNd';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        (async () => {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'login.html'; return; }
+
+            const { data: profile } = await supabaseClient
+                .from('profiles').select('full_name').eq('id', user.id).single();
+
+            document.getElementById('editName').value = profile?.full_name || '';
+            document.getElementById('editEmail').value = user.email || '';
+
+            document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newName = document.getElementById('editName').value.trim();
+                const newPass = document.getElementById('newPassword').value;
+                const confirmPass = document.getElementById('confirmPassword').value;
+                const statusEl = document.getElementById('profileSaveStatus');
+                const saveBtn = document.getElementById('saveProfileBtn');
+
+                if (!newName) { alert('กรุณากรอกชื่อเต็ม'); return; }
+
+                if (newPass && newPass !== confirmPass) {
+                    alert('รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'กำลังบันทึก...';
+                statusEl.style.display = 'none';
+
+                let errors = [];
+
+                const { error: nameError } = await supabaseClient
+                    .from('profiles')
+                    .upsert({ id: user.id, full_name: newName }, { onConflict: 'id' });
+
+                if (nameError) errors.push('ชื่อ: ' + nameError.message);
+
+                if (newPass) {
+                    const { error: passError } = await supabaseClient.auth.updateUser({ password: newPass });
+                    if (passError) errors.push('รหัสผ่าน: ' + passError.message);
+                }
+
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'บันทึกการแก้ไข';
+
+                if (errors.length > 0) {
+                    statusEl.textContent = 'เกิดข้อผิดพลาด: ' + errors.join(', ');
+                    statusEl.style.display = 'block';
+                    statusEl.className = 'profile-save-status profile-save-error';
+                } else {
+                    statusEl.textContent = 'บันทึกสำเร็จ!';
+                    statusEl.style.display = 'block';
+                    statusEl.className = 'profile-save-status profile-save-success';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    setTimeout(() => { window.location.href = 'profile.html'; }, 1200);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
