@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรไฟล์ - BS BINMAP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="profile-card">
+            <a href="index.html" class="profile-back-link">&larr; กลับสู่แผนที่</a>
+
+            <div class="profile-avatar" id="profileAvatar">U</div>
+            <h2 class="profile-name" id="profileName">กำลังโหลด...</h2>
+            <p class="profile-email" id="profileEmail">-</p>
+
+            <div class="profile-info-box">
+                <div class="profile-info-row">
+                    <span class="profile-info-label">ชื่อเต็ม</span>
+                    <span class="profile-info-value" id="profileFullName">-</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">อีเมล</span>
+                    <span class="profile-info-value" id="profileEmailValue">-</span>
+                </div>
+                <div class="profile-info-row">
+                    <span class="profile-info-label">วันที่สมัคร</span>
+                    <span class="profile-info-value" id="profileJoined">-</span>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <a href="profile-edit.html" class="btn-profile-edit">แก้ไขโปรไฟล์</a>
+                <button class="btn-profile-logout" id="btnProfileLogout">ออกจากระบบ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://oxmbkykllivbwgfwqctb.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_GQ7oPb-T9han1h1I8Bs6Fg_VQaFLaNd';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        (async () => {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (!user) { window.location.href = 'login.html'; return; }
+
+            const { data: profile } = await supabaseClient
+                .from('profiles').select('full_name').eq('id', user.id).single();
+
+            const name = profile?.full_name || 'User';
+            document.getElementById('profileName').textContent = name;
+            document.getElementById('profileFullName').textContent = name;
+            document.getElementById('profileEmail').textContent = user.email;
+            document.getElementById('profileEmailValue').textContent = user.email;
+            document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
+
+            const created = new Date(user.created_at);
+            document.getElementById('profileJoined').textContent = created.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            document.getElementById('btnProfileLogout').addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'index.html';
+            });
+        })();
+    </script>
+</body>
+</html>
