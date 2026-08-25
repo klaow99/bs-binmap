@@ -41,24 +41,26 @@
         </div>
 
         <div class="header-center">
-            <div class="ai-search-box">
-                <span class="ai-search-icon">🔍 🤖</span>
-                <input type="text" id="aiSearchInput" class="ai-search-input" placeholder="หาถังขยะใกล้โรงอาหาร" autocomplete="off">
-                <button id="aiSearchBtn" class="ai-search-btn" aria-label="ค้นหา"><span class="ai-search-btn-label">ค้นหา</span><span class="ai-search-spinner"></span></button>
+            <div class="search-box">
+                <span class="search-box-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-box-input" placeholder="ค้นหาถังขยะ สถานที่ หรือหมายเลขถัง..." autocomplete="off">
+                <button id="searchBtn" class="search-btn" aria-label="ค้นหา"><span class="search-btn-label">ค้นหา</span></button>
             </div>
 
-            <div id="aiSuggestions" class="ai-suggestions">
-                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้โรงอาหาร">🗑️ ถังใกล้โรงอาหาร</button>
-                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้สนามฟุตบอล">⚽ ถังใกล้สนามฟุตบอล</button>
-                <button class="ai-suggest-chip" data-query="หาถังขยะใกล้สนามบาส">🏀 ถังใกล้สนามบาส</button>
-                <button class="ai-suggest-chip" data-query="หาถังรีไซเคิล">♻️ หาถังรีไซเคิล</button>
+            <div id="searchSuggestions" class="search-suggestions">
+                <button class="suggest-chip" data-query="โรงอาหาร">🗑️ ถังใกล้โรงอาหาร</button>
+                <button class="suggest-chip" data-query="สนามฟุตบอล">⚽ ถังใกล้สนามฟุตบอล</button>
+                <button class="suggest-chip" data-query="สนามบาส">🏀 ถังใกล้สนามบาส</button>
+                <button class="suggest-chip" data-query="รีไซเคิล">♻️ หาถังรีไซเคิล</button>
             </div>
 
-            <div id="aiResult" class="ai-result" style="display:none;">
-                <div class="ai-result-icon">🤖</div>
-                <div class="ai-result-body">
-                    <span class="ai-result-title">BS BINMAP AI</span>
-                    <span class="ai-result-text"></span>
+            <div id="searchResults" class="search-results-dropdown" style="display:none;"></div>
+
+            <div id="searchStatus" class="search-status" style="display:none;">
+                <div class="search-status-icon">📍</div>
+                <div class="search-status-body">
+                    <span class="search-status-title">ผลการค้นหา</span>
+                    <span class="search-status-text"></span>
                 </div>
             </div>
         </div>
@@ -178,6 +180,96 @@
 
         </div>
     </main>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container profile-modal-container">
+            <div class="modal-header">
+                <h3>โปรไฟล์</h3>
+                <button class="close-modal-x" id="closeProfileModal">&times;</button>
+            </div>
+            <div class="modal-body profile-modal-body">
+                <div class="profile-avatar-wrap" id="profileAvatarWrap">
+                    <div class="profile-avatar profile-avatar-clickable" id="modalProfileAvatar">U</div>
+                    <div class="profile-avatar-overlay">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;color:white;">
+                            <path d="M12 16a4 4 0 100-8 4 4 0 000 8z"/>
+                            <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <input type="file" id="avatarInput" accept="image/*" style="display:none;">
+                </div>
+                <h2 class="profile-name" id="modalProfileName">กำลังโหลด...</h2>
+                <p class="profile-email" id="modalProfileEmail">-</p>
+
+                <div class="profile-info-box">
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">ชื่อเต็ม</span>
+                        <span class="profile-info-value" id="modalProfileFullName">-</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">อีเมล</span>
+                        <span class="profile-info-value" id="modalProfileEmailValue">-</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-info-label">วันที่สมัคร</span>
+                        <span class="profile-info-value" id="modalProfileJoined">-</span>
+                    </div>
+                </div>
+
+                <div class="profile-actions">
+                    <button class="btn-profile-edit" id="modalEditProfileBtn">แก้ไขโปรไฟล์</button>
+                    <button class="btn-profile-logout" id="modalLogoutBtn">ออกจากระบบ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Edit Modal -->
+    <div id="profileEditModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>แก้ไขโปรไฟล์</h3>
+                <button class="close-modal-x" id="closeProfileEditModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="edit-avatar-section">
+                    <div class="profile-avatar-wrap" id="editAvatarWrap">
+                        <div class="profile-avatar profile-avatar-clickable" id="editProfileAvatar">U</div>
+                        <div class="profile-avatar-overlay">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;color:white;">
+                                <path d="M12 16a4 4 0 100-8 4 4 0 000 8z"/>
+                                <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <input type="file" id="editAvatarInput" accept="image/*" style="display:none;">
+                    </div>
+                    <span class="field-hint">คลิกที่รูปเพื่อเปลี่ยน</span>
+                </div>
+                <form id="editProfileForm">
+                    <div class="auth-field">
+                        <label for="editName">ชื่อเต็ม</label>
+                        <input type="text" id="editName" class="auth-input" placeholder="กรอกชื่อเต็ม" required>
+                    </div>
+                    <div class="auth-field">
+                        <label for="editEmail">อีเมล</label>
+                        <input type="email" id="editEmail" class="auth-input" placeholder="example@email.com" disabled>
+                        <span class="field-hint">ไม่สามารถเปลี่ยนอีเมลได้</span>
+                    </div>
+                    <div class="auth-field">
+                        <label for="newPassword">รหัสผ่านใหม่ (ปล่อยว่างหากไม่ต้องการเปลี่ยน)</label>
+                        <input type="password" id="newPassword" class="auth-input" placeholder="••••••••">
+                    </div>
+                    <div class="auth-field">
+                        <label for="confirmPassword">ยืนยันรหัสผ่านใหม่</label>
+                        <input type="password" id="confirmPassword" class="auth-input" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-auth-submit" id="saveProfileBtn">บันทึกการแก้ไข</button>
+                </form>
+                <div id="profileSaveStatus" class="profile-save-status" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Image Viewer Modal -->
     <div id="imageViewerModal" class="image-viewer-backdrop">
