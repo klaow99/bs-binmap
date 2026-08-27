@@ -210,23 +210,163 @@ function initMap() {
             bindMarkerEvents(marker, binData);
         });
 
-        let selectedMarker = null;
-        function clearHighlight() {
-            if (selectedMarker) {
-                selectedMarker.setZIndexOffset(0);
-                const el = selectedMarker.getElement();
-                if (el) { const wrap = el.querySelector(".custom-bin-marker-wrapper"); if (wrap) wrap.classList.remove("marker-selected"); }
-            }
-            selectedMarker = null;
+        // ── Search helpers: normalize, synonyms, escape, debounce ──
+        function escapeHtml(str) {
+            return String(str == null ? "" : str)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
         }
-        function highlightMarker(marker) {
-            clearHighlight();
-            marker.setZIndexOffset(1000);
+        function normalizeText(s) {
+            return String(s == null ? "" : s).toLowerCase().trim().replace(/\s+/g, " ");
+        }
+        function debounce(fn, ms) {
+            let t; return function() { const a = arguments, ctx = this; clearTimeout(t); t = setTimeout(() => fn.apply(ctx, a), ms); };
+        }
+
+        const TYPE_DEFS = [
+            { canonical: "ขยะเปียก", color: "green", synonyms: ["ขยะเปียก","เปียก","wet","organic"] },
+            { canonical: "ขยะรีไซเคิล", color: "yellow", synonyms: ["ขยะรีไซเคิล","รีไซเคิล","recycle","recycling","รีไซเคิล"] },
+            { canonical: "ขยะทั่วไป", color: "blue", synonyms: ["ขยะทั่วไป","ทั่วไป","general"] },
+            { canonical: "ขยะอันตราย", color: "red", synonyms: ["ขยะอันตราย","อันตราย","hazardous"] }
+        ];
+        function getCanonicalType(normalized) {
+            const n = normalizeText(normalized);
+            for (const def of TYPE_DEFS) {
+                for (const syn of def.synonyms) {
+                    if (normalizeText(syn) === n) return def.canonical;
+                }
+            }
+            return null;
+        }
+        function isTypeSynonymMatch(binType, queryNorm) {
+            const q = normalizeText(queryNorm);
+            const binDef = TYPE_DEFS.find(d => d.canonical === binType);
+            if (!binDef) return false;
+            for (const syn of binDef.synonyms) {
+                const s = normalizeText(syn);
+                if (s === q || s.includes(q) || q.includes(s)) return true;
+            }
+            if (normalizeText(binType).includes(q) || q.includes(normalizeText(binType))) return true;
+            return false;
+        }
+        function computeRelevanceScore(binData, queryRaw) {
+            const qNorm = normalizeText(queryRaw);
+            if (!qNorm) return 0;
+            const dType = binData.type || "";
+            const dLocNorm = normalizeText(binData.location);
+            const dTitleNorm = normalizeText(binData.title);
+            const dTypeNorm = normalizeText(dType);
+            const dNumStr = String(binData.number);
+            const dNumPad = String(binData.number).padStart(2, "0");
+            const qDigits = qNorm.replace(/\D/g, "");
+            const qCanon = getCanonicalType(qNorm);
+            let score = 0;
+            // 1. Exact bin number match (highest)
+            if (qDigits) {
+                const qNumNorm = String(parseInt(qDigits, 10));
+                const qPad = qDigits.padStart(2, "0");
+                const isExactNum = (dNumStr === qDigits) || (dNumPad === qDigits) || (dNumStr === qNumNorm) || (dNumPad === qPad) || (dNumStr === qDigits.replace(/^0+/, "")) ;
+                // also handle "ถัง 01" -> digits "01" should match bin 1 exactly; treat padded comparison
+                const exactViaPad = (dNumPad === qDigits) || (dNumPad === qPad);
+                const exactViaInt = qNumNorm && dNumStr === qNumNorm;
+                if (exactViaPad || exactViaInt || isExactNum) {
+                    // require query is mostly digits or "ถัง <num>"
+                    const qWithoutDigits = qNorm.replace(/[0-9]/g, "").trim();
+                    const isNumberQuery = qWithoutDigits === "" || qWithoutDigits === "ถัง" || qWithoutDigits === "ถังขยะ" || qWithoutDigits === "bin" || qWithoutDigits === "ถังขยะ #";
+                    if (qWithoutDigits === "" || isNumberQuery || qDigits.length >= 1 && qNorm.length <= 8) {
+                        // boost but ensure not false positive for "010" vs "10" handled above
+                        if (exactViaPad || exactViaInt) score = Math.max(score, 100);
+                    }
+                }
+            }
+            // 2. Exact bin type match via canonical
+            if (qCanon && qCanon === dType) score = Math.max(score, 90);
+            // 3. Exact location match
+            if (dLocNorm && dLocNorm === qNorm) score = Math.max(score, 80);
+            // 4. Partial type match (synonym aware)
+            if (isTypeSynonymMatch(dType, qNorm)) {
+                // if already exact type (90) don't downgrade
+                if (score < 60) score = Math.max(score, 60);
+                // if q is substring of canonical type but not exact canonical, keep 60
+            } else if (dTypeNorm.includes(qNorm) || qNorm.includes(dTypeNorm)) {
+                score = Math.max(score, 60);
+            }
+            // 5. Partial location match
+            if (dLocNorm && dLocNorm.includes(qNorm)) score = Math.max(score, 50);
+            // 6. Title match
+            if (dTitleNorm && dTitleNorm.includes(qNorm)) score = Math.max(score, 30);
+            // 7. Number partial match (only if not already exact)
+            if (qDigits && score < 100) {
+                if (dNumStr.includes(qDigits) || dNumPad.includes(qDigits)) score = Math.max(score, 20);
+            }
+            return score;
+        }
+
+        // ── MapActions: safe, bounded highlight / pan / zoom ──
+        const highlightedMarkers = new Set();
+        function applyHighlightClass(marker, cls) {
             const el = marker.getElement();
-            if (el) { const wrap = el.querySelector(".custom-bin-marker-wrapper"); if (wrap) wrap.classList.add("marker-selected"); }
-            selectedMarker = marker;
-            const targetZoom = Math.min(map.getMaxZoom(), Math.max(map.getZoom(), fitZoom + 2));
+            if (!el) return;
+            const wrap = el.querySelector(".custom-bin-marker-wrapper");
+            if (wrap) wrap.classList.add(cls);
+        }
+        function removeHighlightClass(marker, cls) {
+            const el = marker.getElement();
+            if (!el) return;
+            const wrap = el.querySelector(".custom-bin-marker-wrapper");
+            if (wrap) wrap.classList.remove(cls);
+        }
+        function MapActions_CLEAR_ALL() {
+            highlightedMarkers.forEach(m => {
+                m.setZIndexOffset(0);
+                removeHighlightClass(m, "marker-selected");
+                removeHighlightClass(m, "marker-multi");
+            });
+            highlightedMarkers.clear();
+        }
+        // legacy name kept for locateBtn compatibility
+        function clearHighlight() { MapActions_CLEAR_ALL(); }
+        function MapActions_HIGHLIGHT_BINS(markers) {
+            MapActions_CLEAR_ALL();
+            markers.forEach(m => {
+                m.setZIndexOffset(1000);
+                applyHighlightClass(m, "marker-multi");
+                if (m.bringToFront) try { m.bringToFront(); } catch(e) {}
+            });
+            markers.forEach(m => highlightedMarkers.add(m));
+        }
+        function MapActions_HIGHLIGHT_SINGLE_BIN(marker) {
+            MapActions_CLEAR_ALL();
+            marker.setZIndexOffset(1000);
+            applyHighlightClass(marker, "marker-selected");
+            if (marker.bringToFront) try { marker.bringToFront(); } catch(e) {}
+            highlightedMarkers.add(marker);
+        }
+        function MapActions_PAN_TO(marker) {
+            const targetZoom = Math.min(map.getMaxZoom(), Math.max(map.getZoom(), fitZoom + 1.5));
             map.flyTo(marker.getLatLng(), targetZoom, { duration: 0.8 });
+        }
+        function MapActions_FIT_BOUNDS(markers) {
+            if (!markers || markers.length === 0) return;
+            if (markers.length === 1) { MapActions_PAN_TO(markers[0]); return; }
+            const group = L.featureGroup(markers);
+            const b = group.getBounds();
+            if (b.isValid()) {
+                map.flyToBounds(b, { padding: [40, 40], maxZoom: Math.min(map.getMaxZoom(), fitZoom + 1), duration: 0.8 });
+            }
+        }
+        function MapActions_OPEN_BIN_DETAIL(marker, data) {
+            marker.fire("click");
+        }
+        function MapActions_RESET_VIEW() {
+            MapActions_CLEAR_ALL();
+            map.flyToBounds(bounds, { duration: 0.8 });
+        }
+        // keep original highlightMarker for backward compat (single)
+        function highlightMarker(marker) {
+            MapActions_HIGHLIGHT_SINGLE_BIN(marker);
+            MapActions_PAN_TO(marker);
         }
 
         const searchInput = document.getElementById("searchInput");
@@ -237,6 +377,8 @@ function initMap() {
         const searchResults = document.getElementById("searchResults");
 
         function getTypeColor(type) {
+            const def = TYPE_DEFS.find(d => d.canonical === type);
+            if (def) return def.color;
             if (type === "ขยะเปียก") return "green";
             if (type === "ขยะรีไซเคิล") return "yellow";
             if (type === "ขยะอันตราย") return "red";
@@ -245,6 +387,7 @@ function initMap() {
 
         function showSearchStatus(message) {
             if (searchStatusText) searchStatusText.textContent = message || "";
+            if (!searchStatus) return;
             searchStatus.classList.remove("search-status-enter");
             searchStatus.style.display = "flex";
             void searchStatus.offsetWidth;
@@ -256,32 +399,37 @@ function initMap() {
         }
 
         function renderSearchResults(query) {
-            if (!query || !searchResults) { hideSearchResults(); return; }
-            const q = query.toLowerCase();
-            const matches = allMarkers.filter((item) => {
-                const d = item.data;
-                return (
-                    (d.title && d.title.toLowerCase().includes(q)) ||
-                    (d.location && d.location.toLowerCase().includes(q)) ||
-                    (d.type && d.type.toLowerCase().includes(q)) ||
-                    (d.number && String(d.number).includes(q))
-                );
-            });
+            if (!query || !searchResults) { hideSearchResults(); MapActions_CLEAR_ALL(); if (searchStatus) searchStatus.style.display = "none"; return; }
+            const qNorm = normalizeText(query);
+            const scored = allMarkers.map(item => ({ item, score: computeRelevanceScore(item.data, query) }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score || String(a.item.data.number).localeCompare(String(b.item.data.number)));
+            const matches = scored.map(x => x.item);
             if (matches.length === 0) {
-                searchResults.innerHTML = '<div class="search-no-result">ไม่พบถังขยะที่ค้นหา</div>';
+                searchResults.innerHTML = '<div class="search-no-result">ไม่พบถังขยะที่ตรงกับคำค้นนี้</div>';
                 searchResults.style.display = "block";
+                MapActions_CLEAR_ALL();
+                if (searchStatus) searchStatus.style.display = "none";
                 return;
+            }
+            // highlight all matching bins (multi) and frame map (debounced caller handles fit)
+            MapActions_HIGHLIGHT_BINS(matches.map(m => m.marker));
+            // fit bounds without excessive zoom
+            MapActions_FIT_BOUNDS(matches.map(m => m.marker));
+            if (searchStatus) {
+                const locSummary = matches.length === 1 ? (matches[0].data.location || "") : matches.length + " จุด";
+                showSearchStatus("พบ " + matches.length + " ถังขยะ" + (matches.length === 1 ? " #" + escapeHtml(String(matches[0].data.number)) + " (" + escapeHtml(locSummary) + ")" : " (" + escapeHtml(locSummary) + ")"));
             }
             searchResults.innerHTML = matches.map((item) => {
                 const d = item.data;
                 const c = getTypeColor(d.type);
-                return `<div class="search-result-item" data-marker-id="${d.id}">
-                    <span class="search-result-dot ${c}"></span>
+                return `<div class="search-result-item" data-marker-id="${escapeHtml(String(d.id))}">
+                    <span class="search-result-dot ${escapeHtml(c)}"></span>
                     <div class="search-result-info">
-                        <span class="search-result-name">${d.title || "ถังขยะ"}</span>
-                        <span class="search-result-detail">${d.location || "-"} | #${d.number || "?"}</span>
+                        <span class="search-result-name">${escapeHtml(d.title || "ถังขยะ")}</span>
+                        <span class="search-result-detail">${escapeHtml(d.location || "-")} | #${escapeHtml(String(d.number || "?"))}</span>
                     </div>
-                    <span class="search-result-type ${c}">${d.type || "-"}</span>
+                    <span class="search-result-type ${escapeHtml(c)}">${escapeHtml(d.type || "-")}</span>
                 </div>`;
             }).join("");
             searchResults.style.display = "block";
@@ -290,26 +438,27 @@ function initMap() {
                     const markerId = el.dataset.markerId;
                     const found = allMarkers.find((m) => String(m.data.id) === String(markerId));
                     if (found) {
-                        highlightMarker(found.marker);
-                        bindMarkerEvents(found.marker, found.data);
-                        found.marker.fire("click");
-                        showSearchStatus("พบถังขยะ #" + (found.data.number || "") + " (" + (found.data.location || "") + ")");
+                        MapActions_HIGHLIGHT_SINGLE_BIN(found.marker);
+                        MapActions_PAN_TO(found.marker);
+                        MapActions_OPEN_BIN_DETAIL(found.marker, found.data);
+                        showSearchStatus("พบถังขยะ #" + escapeHtml(String(found.data.number || "")) + " (" + escapeHtml(String(found.data.location || "")) + ")");
                     }
                     hideSearchResults();
-                    searchInput.blur();
+                    if (searchInput) searchInput.blur();
                 });
             });
         }
 
+        const debouncedRender = debounce((q) => {
+            if (q && q.length >= 1) renderSearchResults(q);
+            else { hideSearchResults(); MapActions_CLEAR_ALL(); if (searchStatus) searchStatus.style.display = "none"; }
+        }, 180);
         if (searchInput) {
             searchInput.addEventListener("input", () => {
                 const q = searchInput.value.trim();
-                searchStatus.style.display = "none";
-                if (q.length >= 1) {
-                    renderSearchResults(q);
-                } else {
-                    hideSearchResults();
-                }
+                if (searchStatus) searchStatus.style.display = "none";
+                if (q.length >= 1) debouncedRender(q);
+                else { hideSearchResults(); MapActions_CLEAR_ALL(); if (searchStatus) searchStatus.style.display = "none"; }
             });
             searchInput.addEventListener("focus", () => {
                 const q = searchInput.value.trim();
@@ -320,7 +469,7 @@ function initMap() {
                 setTimeout(() => {
                     hideSearchResults();
                     if (searchSuggestions) searchSuggestions.classList.remove("show");
-                }, 200);
+                }, 220);
             });
             searchInput.addEventListener("keypress", (e) => {
                 if (e.key === "Enter") {
@@ -331,7 +480,10 @@ function initMap() {
         }
 
         document.addEventListener("click", (e) => {
-            if (!e.target.closest(".search-box") && !e.target.closest(".search-results-dropdown")) {
+            const insideBox = e.target.closest(".search-box");
+            const insideResults = e.target.closest(".search-results-dropdown");
+            const insideSuggestions = e.target.closest(".search-suggestions");
+            if (!insideBox && !insideResults && !insideSuggestions) {
                 hideSearchResults();
             }
         });
@@ -339,6 +491,7 @@ function initMap() {
         if (searchBtn) searchBtn.addEventListener("click", () => {
             const q = (searchInput.value || "").trim();
             if (q) renderSearchResults(q);
+            else { hideSearchResults(); MapActions_CLEAR_ALL(); if (searchStatus) searchStatus.style.display = "none"; }
         });
 
         if (searchSuggestions) {
@@ -346,7 +499,8 @@ function initMap() {
                 chip.addEventListener("click", () => {
                     searchInput.value = chip.dataset.query || "";
                     searchSuggestions.classList.remove("show");
-                    renderSearchResults(searchInput.value.trim());
+                    const q = searchInput.value.trim();
+                    if (q) renderSearchResults(q);
                 });
             });
         }
@@ -356,7 +510,7 @@ function initMap() {
         const locateBtn = document.getElementById("locateBtn");
         if (zoomInBtn) zoomInBtn.addEventListener("click", () => map.zoomIn());
         if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => map.zoomOut());
-        if (locateBtn) locateBtn.addEventListener("click", () => { clearHighlight(); map.flyToBounds(bounds, { duration: 0.8 }); });
+        if (locateBtn) locateBtn.addEventListener("click", () => { MapActions_RESET_VIEW(); if (searchStatus) searchStatus.style.display = "none"; hideSearchResults(); });
 
         function checkEmptyComments() {
             const commentsDiv = document.getElementById("binComments");
@@ -420,9 +574,11 @@ function initMap() {
             return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
         }
 
+        let currentBinId = null;
         function bindMarkerEvents(marker, data) {
             marker.on("click", (e) => {
                 L.DomEvent.stopPropagation(e);
+                currentBinId = data.id;
                 document.getElementById("sidebarPlaceholder").style.display = "none";
                 document.getElementById("sidebarContent").classList.add("show");
                 document.getElementById("binTitle").textContent = data.title || "ถังขยะ";
@@ -469,57 +625,95 @@ function initMap() {
                 imageInput.addEventListener("change", () => {
                     const file = imageInput.files[0];
                     if (file) {
+                        if (!file.type.startsWith("image/")) { alert("กรุณาเลือกไฟล์รูปภาพเท่านั้น"); imageInput.value = ""; return; }
+                        if (file.size > 5 * 1024 * 1024) { alert("ไฟล์ใหญ่เกิน 5MB"); imageInput.value = ""; return; }
                         const reader = new FileReader();
-                        reader.onload = (e) => { previewImg.src = e.target.result; previewContainer.style.display = "block"; };
+                        reader.onload = (e) => { previewImg.src = e.target.result; previewContainer.style.display = "flex"; };
                         reader.readAsDataURL(file);
                     }
                 });
             }
             if (removeImgBtn) {
-                removeImgBtn.addEventListener("click", () => { imageInput.value = ""; previewContainer.style.display = "none"; });
+                removeImgBtn.addEventListener("click", () => { imageInput.value = ""; previewContainer.style.display = "none"; previewImg.src = ""; });
             }
             if (submitBtn && reportInput) {
+                let isSubmitting = false;
+                const setSubmitting = (v) => {
+                    isSubmitting = v;
+                    submitBtn.disabled = v;
+                    submitBtn.textContent = v ? "กำลังโพสต์..." : "โพสต์ความคิดเห็น";
+                    submitBtn.style.opacity = v ? "0.7" : "1";
+                    submitBtn.style.pointerEvents = v ? "none" : "auto";
+                };
                 submitBtn.addEventListener("click", async () => {
+                    if (isSubmitting) return;
+                    const text = reportInput.value.trim();
+                    const imageFile = imageInput.files[0] || null;
+                    // 1. validate
+                    if (text === "" && !imageFile) return;
+                    if (text.length > 500) { alert("ความคิดเห็นยาวเกิน 500 ตัวอักษร"); return; }
+                    if (!currentBinId) { alert("กรุณาเลือกถังขยะก่อนโพสต์ความคิดเห็น"); return; }
+                    // 2. get authenticated user
                     const { data: { user } } = await supabaseClient.auth.getUser();
                     if (!user) { alert("กรุณาเข้าสู่ระบบก่อนโพสต์ความคิดเห็น"); window.location.href = 'login.html'; return; }
-                    const text = reportInput.value.trim();
-                    const imageFile = imageInput.files[0];
-                    if (text === "" && !imageFile) return;
-                    const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', user.id).single();
-                    const displayUserName = profile?.full_name || 'User';
+                    setSubmitting(true);
                     let uploadedImageUrl = null;
-                    if (imageFile) {
-                        const fileExt = imageFile.name.split('.').pop();
-                        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-                        const { data: uploadData, error: uploadError } = await supabaseClient.storage.from('bin-images').upload(fileName, imageFile);
-                        if (uploadError) { alert("เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: " + uploadError.message); return; }
-                        const { data: publicUrlData } = supabaseClient.storage.from('bin-images').getPublicUrl(fileName);
-                        uploadedImageUrl = publicUrlData.publicUrl;
+                    try {
+                        // 3. fetch display name (keep existing structure)
+                        let displayUserName = 'User';
+                        try {
+                            const { data: profile } = await supabaseClient.from('profiles').select('full_name').eq('id', user.id).single();
+                            displayUserName = profile?.full_name || user.email || 'User';
+                        } catch (e) { displayUserName = user.email || 'User'; }
+                        // 4. upload image if attached (existing bucket/flow)
+                        if (imageFile) {
+                            const fileExt = (imageFile.name.split('.').pop() || 'jpg').toLowerCase();
+                            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+                            const { error: uploadError } = await supabaseClient.storage.from('bin-images').upload(fileName, imageFile);
+                            if (uploadError) throw new Error("อัปโหลดรูปภาพล้มเหลว: " + uploadError.message);
+                            const { data: publicUrlData } = supabaseClient.storage.from('bin-images').getPublicUrl(fileName);
+                            uploadedImageUrl = publicUrlData.publicUrl;
+                        }
+                        // 5. insert into comments table (only after upload succeeds)
+                        const basePayload = {
+                            bin_id: currentBinId,
+                            user_name: displayUserName,
+                            text: text,
+                            image_url: uploadedImageUrl
+                        };
+                        // include user_id if schema has it (optional, ignore if column missing)
+                        const payloadWithUser = { ...basePayload, user_id: user.id };
+                        let insertResult = await supabaseClient.from('comments').insert(payloadWithUser).select();
+                        if (insertResult.error) {
+                            const msg = String(insertResult.error.message || "");
+                            // fallback without user_id if column does not exist
+                            if (msg.includes("user_id") || msg.includes("column") || insertResult.error.code === "PGRST204") {
+                                insertResult = await supabaseClient.from('comments').insert(basePayload).select();
+                            }
+                        }
+                        // fallback for alternative column names
+                        if (insertResult.error) {
+                            const msg = String(insertResult.error.message || "");
+                            if (msg.includes("Could not find the table")) {
+                                throw new Error("ตาราง comments ยังไม่มีใน Supabase — กรุณารัน SQL สร้างตารางก่อน (ดูรายงาน)");
+                            }
+                            throw new Error(insertResult.error.message);
+                        }
+                        // 6. only show UI after DB success
+                        reportInput.value = "";
+                        imageInput.value = "";
+                        previewImg.src = "";
+                        previewContainer.style.display = "none";
+                        // reload from DB to keep ordering (created_at ASC) as loadComments does
+                        await loadComments(currentBinId);
+                    } catch (err) {
+                        console.error("comment insert error:", err);
+                        alert("เกิดข้อผิดพลาดในการบันทึกความคิดเห็น: " + (err.message || String(err)));
+                    } finally {
+                        setSubmitting(false);
                     }
-                    const commentsDiv = document.getElementById("binComments");
-                    const placeholder = commentsDiv.querySelector(".empty-comment-placeholder");
-                    if (placeholder) commentsDiv.innerHTML = "";
-                    const newComment = document.createElement("div");
-                    newComment.className = "comment-card";
-                    let imageHtml = uploadedImageUrl ? `<img src="${uploadedImageUrl}" class="comment-image" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer;">` : "";
-                    newComment.innerHTML = `
-                        <div style="width:30px;height:30px;background:#cbd5e0;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:white;">
-                                <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="comment-main">
-                            <div class="comment-user-info"><span class="username">${displayUserName}</span><span class="comment-time">เมื่อสักครู่</span></div>
-                            ${imageHtml}
-                            <span class="comment-text">${text}</span>
-                        </div>`;
-                    commentsDiv.appendChild(newComment);
-                    reportInput.value = "";
-                    imageInput.value = "";
-                    previewContainer.style.display = "none";
-                    commentsDiv.scrollTop = commentsDiv.scrollHeight;
                 });
-                reportInput.addEventListener("keypress", (e) => { if (e.key === "Enter") submitBtn.click(); });
+                reportInput.addEventListener("keypress", (e) => { if (e.key === "Enter" && !isSubmitting) submitBtn.click(); });
             }
         }
     };
