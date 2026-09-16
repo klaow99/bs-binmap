@@ -44,8 +44,190 @@ document.addEventListener("DOMContentLoaded", async () => {
     initMap();
     setupImageViewer();
     setupLocationModal();
-    setupSidebarDrag();
+    setupNavSidebar();
+    const heroCTA = document.getElementById("heroCTA");
+    if (heroCTA) heroCTA.addEventListener("click", () => document.getElementById("mapSection")?.scrollIntoView({behavior:"smooth"}));
+    // Top bar ใสบน Hero, ขาวเมื่อเลื่อนพ้น Hero
+    const header = document.getElementById("mainHeader");
+    const hero = document.getElementById("hero");
+    if (header && hero) {
+        const onScroll = () => {
+            const threshold = hero.offsetHeight - header.offsetHeight - 20;
+            if (window.scrollY > threshold) header.classList.remove("is-transparent");
+            else header.classList.add("is-transparent");
+        };
+        window.addEventListener("scroll", onScroll, {passive:true});
+        onScroll();
+    }
 });
+
+function setupNavSidebar() {
+    const btn = document.getElementById("navToggleBtn");
+    const sidebar = document.getElementById("navSidebar");
+    const backdrop = document.getElementById("navBackdrop");
+    if (!btn || !sidebar || !backdrop) return;
+    function open() {
+        sidebar.classList.add("open");
+        sidebar.setAttribute("aria-hidden","false");
+        backdrop.style.display = "block";
+        btn.setAttribute("aria-expanded","true");
+    }
+    function close() {
+        sidebar.classList.remove("open");
+        sidebar.setAttribute("aria-hidden","true");
+        backdrop.style.display = "none";
+        btn.setAttribute("aria-expanded","false");
+    }
+    const closeBtn = document.getElementById("navCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    btn.addEventListener("click", () => sidebar.classList.contains("open") ? close() : open());
+    backdrop.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    sidebar.querySelectorAll(".nav-toggle").forEach(tog => {
+        tog.addEventListener("click", () => {
+            const grp = tog.closest(".nav-group");
+            const expanded = tog.getAttribute("aria-expanded") === "true";
+            tog.setAttribute("aria-expanded", String(!expanded));
+            grp.classList.toggle("open", !expanded);
+        });
+    });
+    sidebar.querySelectorAll(".nav-item[data-nav]").forEach(a => {
+        a.addEventListener("click", (e) => {
+            e.preventDefault();
+            const nav = a.dataset.nav;
+            sidebar.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
+            a.classList.add("active");
+            close();
+            if (nav === "home") window.scrollTo({top:0, behavior:"smooth"});
+            else if (nav === "map") document.getElementById("mapSection")?.scrollIntoView({behavior:"smooth"});
+        });
+    });
+    // Top logo -> Home
+    const topLogo = document.getElementById("topLogoHome");
+    if (topLogo) {
+        topLogo.addEventListener("click", () => window.scrollTo({top:0, behavior:"smooth"}));
+        topLogo.addEventListener("keydown", (e) => { if (e.key==="Enter"||e.key===" ") { e.preventDefault(); window.scrollTo({top:0, behavior:"smooth"}); }});
+    }
+    // Left profile footer
+    setupNavProfile();
+}
+
+const LS_NAV_PROFILE = "bs_binmap_nav_profile_v1";
+function setupNavProfile() {
+    const avatarEl = document.getElementById("navProfileAvatar");
+    const nameEl = document.getElementById("navProfileName");
+    const emailEl = document.getElementById("navProfileEmail");
+    const editBtn = document.getElementById("navEditProfileBtn");
+    const form = document.getElementById("navProfileEditForm");
+    const nickInput = document.getElementById("navEditNickname");
+    const bdayInput = document.getElementById("navEditBirthday");
+    const sidInput = document.getElementById("navEditStudentId");
+    const avatarPreview = document.getElementById("navEditAvatarPreview");
+    const avatarInput = document.getElementById("navEditAvatarInput");
+    const avatarWrap = document.getElementById("navEditAvatarWrap");
+    const cancelBtn = document.getElementById("navEditCancel");
+    const statusEl = document.getElementById("navEditStatus");
+    if (!avatarEl || !form) return;
+
+    let pendingFile = null;
+    function loadLocal() {
+        try { return JSON.parse(localStorage.getItem(LS_NAV_PROFILE) || "null"); } catch { return null; }
+    }
+    function saveLocal(data) { localStorage.setItem(LS_NAV_PROFILE, JSON.stringify(data)); }
+
+    async function refresh() {
+        const local = loadLocal();
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        let displayName = local?.nickname || "Guest";
+        let email = user?.email || local?.email || "-";
+        let avatar = local?.avatarDataUrl || null;
+        let birthday = local?.birthday || "";
+        let sid = local?.studentId || "";
+        // try supabase profile for avatar/name
+        if (user) {
+            const { data: prof } = await supabaseClient.from('profiles').select('full_name,avatar_url').eq('id', user.id).single();
+            if (prof?.full_name && !local?.nickname) displayName = prof.full_name;
+            if (prof?.avatar_url && !avatar) avatar = prof.avatar_url;
+            email = user.email;
+        }
+        if (avatar) { avatarEl.src = avatar; avatarPreview.src = avatar; } else { avatarEl.src = "assets/logo.jpg"; avatarPreview.src = "assets/logo.jpg"; }
+        nameEl.textContent = displayName;
+        emailEl.textContent = email;
+        nickInput.value = local?.nickname || "";
+        bdayInput.value = birthday;
+        sidInput.value = sid;
+    }
+    refresh();
+    supabaseClient.auth.onAuthStateChange(() => refresh());
+
+    editBtn.addEventListener("click", () => {
+        form.style.display = form.style.display === "none" ? "flex" : "none";
+        form.scrollIntoView({behavior:"smooth", block:"nearest"});
+    });
+    cancelBtn.addEventListener("click", () => { form.style.display="none"; pendingFile=null; });
+    avatarWrap.addEventListener("click", () => avatarInput.click());
+    avatarInput.addEventListener("change", () => {
+        const f = avatarInput.files[0];
+        if (!f) return;
+        if (!f.type.startsWith("image/")) return alert("กรุณาเลือกไฟล์รูปภาพ");
+        pendingFile = f;
+        const rd = new FileReader();
+        rd.onload = e => avatarPreview.src = e.target.result;
+        rd.readAsDataURL(f);
+    });
+    sidInput.addEventListener("input", () => {
+        sidInput.value = sidInput.value.replace(/\D/g,"").slice(0,5);
+    });
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const nickname = nickInput.value.trim();
+        const birthday = bdayInput.value;
+        const studentId = sidInput.value.trim();
+        if (studentId && !/^\d{5}$/.test(studentId)) { statusEl.textContent="รหัสนักเรียนต้องเป็นตัวเลข 5 หลัก"; statusEl.style.display="block"; statusEl.style.background="rgba(244,67,54,0.1)"; statusEl.style.color="#C62828"; return; }
+        statusEl.style.display="none";
+        let avatarDataUrl = null;
+        if (pendingFile) {
+            const rd = new FileReader();
+            avatarDataUrl = await new Promise(res => { rd.onload = ev => res(ev.target.result); rd.readAsDataURL(pendingFile); });
+            // try upload to supabase if logged in
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+                const ext = (pendingFile.name.split('.').pop()||'jpg').toLowerCase();
+                const fileName = `avatars/${user.id}.${ext}`;
+                const { error: upErr } = await supabaseClient.storage.from('bin-images').upload(fileName, pendingFile, {upsert:true});
+                if (!upErr) {
+                    const { data: urlData } = supabaseClient.storage.from('bin-images').getPublicUrl(fileName);
+                    avatarDataUrl = urlData.publicUrl + "?t=" + Date.now();
+                    // also upsert profiles avatar_url
+                    await supabaseClient.from('profiles').upsert({id:user.id, avatar_url: avatarDataUrl}, {onConflict:'id'});
+                }
+            }
+        } else {
+            const local = loadLocal();
+            avatarDataUrl = local?.avatarDataUrl || null;
+        }
+        const toSave = { nickname, birthday, studentId, avatarDataUrl, email: (await supabaseClient.auth.getUser()).data.user?.email || "" };
+        saveLocal(toSave);
+        statusEl.textContent="บันทึกสำเร็จ!";
+        statusEl.style.display="block";
+        statusEl.style.background="rgba(76,175,80,0.12)";
+        statusEl.style.color="#2E7D32";
+        pendingFile=null;
+        setTimeout(()=>{ form.style.display="none"; statusEl.style.display="none"; refresh(); }, 900);
+    });
+    // Light/Dark toggle (visual only, store preference)
+    document.querySelectorAll(".theme-btn").forEach(b => b.addEventListener("click", () => {
+        document.querySelectorAll(".theme-btn").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");
+        localStorage.setItem("bs_binmap_theme", b.dataset.theme);
+        document.documentElement.setAttribute("data-theme", b.dataset.theme);
+    }));
+    const savedTheme = localStorage.getItem("bs_binmap_theme");
+    if (savedTheme) {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        document.querySelectorAll(".theme-btn").forEach(b=>b.classList.toggle("active", b.dataset.theme===savedTheme));
+    }
+}
 
 function setupLocationModal() {
     const modal = document.getElementById("locationModal");
@@ -155,7 +337,7 @@ async function checkUserAuth() {
 }
 
 function initMap() {
-    const imageUrl = "assets/BSMAP.jpg";
+    const imageUrl = "assets/NEWMAP_transparent.png";
     const allMarkers = [];
 
     const map = L.map("map", {
@@ -186,20 +368,33 @@ function initMap() {
         const w = this.naturalWidth;
         const h = this.naturalHeight;
         const bounds = [[0, 0], [h, w]];
-        L.imageOverlay(imageUrl, bounds).addTo(map);
+        // --- LOCK MARKER TO IMAGE: imageOverlay + markers ใช้ระบบพิกัดเดียวกัน (CRS.Simple) ---
+        // ตำแหน่ง marker = lat_frac * h , lng_frac * w  => ล็อกตามสัดส่วนรูป ไม่ใช่พิกัดจอ
+        // ดังนั้นแก้ UX/UI / resize / sidebar เปิด-ปิด ก็ไม่หลุด
+        const overlay = L.imageOverlay(imageUrl, bounds, { interactive: false }).addTo(map);
         map.fitBounds(bounds);
         const fitZoom = map.getBoundsZoom(bounds);
         map.setZoom(fitZoom);
         map.setMinZoom(fitZoom - 1);
         map.setMaxBounds(bounds);
+        // สร้าง pane แยกให้ marker อยู่บน overlay ชั้นเดียวกัน ล็อกตาม transform ของ map
+        map.createPane("binPane");
+        map.getPane("binPane").style.zIndex = 400;
         setTimeout(() => { map.invalidateSize(); map.fitBounds(bounds); }, 200);
+        // กันหลุดตอนแก้ layout / เปิด sidebar / resize หน้าจอ
+        let resizeTimer = null;
+        window.addEventListener("resize", () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { map.invalidateSize(); /* ไม่ fitBounds ซ้ำเพื่อคงตำแหน่งผู้ใช้ */ }, 150);
+        });
+        // เผื่อมีการซูม/แพนแล้วอยากกลับกรอบรูป กด locate จะ fitBounds ให้เอง (มีแล้วใน MapActions_RESET_VIEW)
 
         await migrateLocalStorageToSupabase();
         const allBins = await loadBinsFromSupabase();
         allBins.forEach((bin) => {
             const lat = h * bin.lat_frac;
             const lng = w * bin.lng_frac;
-            const marker = L.marker([lat, lng], { icon: createCustomIcon(bin.type) }).addTo(map);
+            const marker = L.marker([lat, lng], { icon: createCustomIcon(bin.type), pane: "binPane" }).addTo(map);
             const binData = {
                 id: bin.id, title: "ถังขยะ #" + bin.number,
                 type: bin.type, location: bin.location, update: "ข้อมูลจริง",
@@ -582,7 +777,9 @@ function initMap() {
                 document.getElementById("sidebarPlaceholder").style.display = "none";
                 document.getElementById("sidebarContent").classList.add("show");
                 document.getElementById("binTitle").textContent = data.title || "ถังขยะ";
-                document.getElementById("binType").textContent = data.type;
+                const typeEl = document.getElementById("binType");
+                typeEl.textContent = data.type;
+                typeEl.className = "info-text value-pill " + (data.type === "ขยะเปียก" ? "green" : data.type === "ขยะรีไซเคิล" ? "yellow" : data.type === "ขยะอันตราย" ? "red" : "blue");
                 document.getElementById("binLocation").textContent = data.location;
                 document.getElementById("binUpdate").textContent = data.update;
                 document.getElementById("binImage").src = data.image;

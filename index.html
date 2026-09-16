@@ -30,12 +30,83 @@
         </div>
     </div>
 
-    <header class="main-header">
-        <div class="header-left">
+    <!-- Nav Sidebar Backdrop -->
+    <div id="navBackdrop" class="nav-backdrop" style="display:none;"></div>
+
+    <!-- Nav Sidebar (left) -->
+    <nav id="navSidebar" class="nav-sidebar" aria-hidden="true">
+        <div class="nav-sidebar-header">
             <div class="logo-container">
-                <svg class="trash-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
+                <img src="assets/logo.jpg" alt="BS Logo" class="school-logo">
+                <span class="brand-name">BS BINMAP</span>
+            </div>
+            <button id="navCloseBtn" class="nav-close-btn" aria-label="ปิดเมนู">×</button>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="#" class="nav-item active" data-nav="home" id="navHomeBtn"><span class="nav-ico">🏠</span> Home</a></li>
+            <li><a href="#" class="nav-item" data-nav="map" id="navMapBtn"><span class="nav-ico">🗺️</span> Map</a></li>
+            <li><a href="#" class="nav-item" data-nav="statistics"><span class="nav-ico">📊</span> Statistics</a></li>
+            <li><a href="#" class="nav-item" data-nav="reports"><span class="nav-ico">📋</span> Bin Reports</a></li>
+            <li class="nav-group">
+                <button class="nav-item nav-toggle" aria-expanded="false"><span class="nav-ico">💬</span> Comments <span class="nav-chevron">›</span></button>
+                <ul class="nav-submenu">
+                    <li><a href="#" class="nav-subitem">All Comments</a></li>
+                    <li><a href="#" class="nav-subitem">My Comments</a></li>
+                </ul>
+            </li>
+            <li class="nav-group">
+                <button class="nav-item nav-toggle" aria-expanded="false"><span class="nav-ico">🗑️</span> Bins <span class="nav-chevron">›</span></button>
+                <ul class="nav-submenu">
+                    <li><a href="#" class="nav-subitem">All Bins</a></li>
+                    <li><a href="#" class="nav-subitem">Add Bin</a></li>
+                </ul>
+            </li>
+            <li><a href="#" class="nav-item" data-nav="settings"><span class="nav-ico">⚙️</span> Settings</a></li>
+            <li><a href="#" class="nav-item" data-nav="report"><span class="nav-ico">🕐</span> Report</a></li>
+        </ul>
+        <!-- Sidebar Profile Footer — สไตล์ตามรูป VAST DS -->
+        <div class="nav-sidebar-footer">
+            <div class="nav-theme-toggle">
+                <button class="theme-btn active" data-theme="light">☀ Light</button>
+                <button class="theme-btn" data-theme="dark">🌙 Dark</button>
+            </div>
+            <div class="nav-profile-card" id="navProfileCard">
+                <img id="navProfileAvatar" class="nav-profile-avatar" src="assets/logo.jpg" alt="avatar">
+                <div class="nav-profile-info">
+                    <span id="navProfileName" class="nav-profile-name">Guest</span>
+                    <span id="navProfileEmail" class="nav-profile-email">-</span>
+                </div>
+            </div>
+            <button id="navEditProfileBtn" class="nav-edit-profile-btn">✏️ แก้ไขโปรไฟล์</button>
+            <!-- Inline Edit Form -->
+            <form id="navProfileEditForm" class="nav-profile-edit-form" style="display:none;">
+                <div class="nav-edit-avatar-wrap" id="navEditAvatarWrap">
+                    <img id="navEditAvatarPreview" class="nav-edit-avatar" src="assets/logo.jpg" alt="preview">
+                    <span class="nav-edit-avatar-hint">คลิกเปลี่ยนรูป</span>
+                    <input type="file" id="navEditAvatarInput" accept="image/*" style="display:none;">
+                </div>
+                <label class="nav-field-label">ชื่อเล่น</label>
+                <input type="text" id="navEditNickname" class="nav-input" placeholder="ชื่อเล่น" maxlength="30">
+                <label class="nav-field-label">วันเกิด</label>
+                <input type="date" id="navEditBirthday" class="nav-input">
+                <label class="nav-field-label">รหัสนักเรียน 5 หลัก</label>
+                <input type="text" id="navEditStudentId" class="nav-input" placeholder="เช่น 12345" maxlength="5" pattern="\d{5}">
+                <div class="nav-edit-actions">
+                    <button type="button" id="navEditCancel" class="btn-cancel-sm">ยกเลิก</button>
+                    <button type="submit" class="btn-save-sm">บันทึก</button>
+                </div>
+                <div id="navEditStatus" class="nav-edit-status" style="display:none;"></div>
+            </form>
+        </div>
+    </nav>
+
+    <header class="main-header is-transparent" id="mainHeader">
+        <div class="header-left">
+            <button id="navToggleBtn" class="nav-hamburger" aria-label="เปิดเมนู" aria-expanded="false" aria-controls="navSidebar">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="logo-container" id="topLogoHome" role="button" tabindex="0" title="กลับหน้า Home">
+                <img src="assets/logo.jpg" alt="BS Logo" class="school-logo">
                 <span class="brand-name">BS BINMAP</span>
             </div>
         </div>
@@ -73,7 +144,19 @@
         </div>
     </header>
 
-    <main class="content-area">
+    <!-- Hero: หน้าโรงเรียน เต็มจอ เลื่อนลงเจอแมพ -->
+    <section id="hero" class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">BS</h1>
+            <p class="hero-subtitle">โรงเรียนเบญจมราชานุสรณ์</p>
+            <button id="heroCTA" class="hero-cta">ดูแผนที่ ↓</button>
+        </div>
+        <div class="hero-scroll-hint">เลื่อนลง</div>
+    </section>
+
+    <main class="content-area" id="mapSection">
         <div class="main-container">
 
             <div class="map-card">
