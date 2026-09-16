@@ -43,7 +43,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await checkUserAuth();
     initMap();
     setupImageViewer();
-    setupLocationModal();
     setupNavSidebar();
     const heroCTA = document.getElementById("heroCTA");
     if (heroCTA) heroCTA.addEventListener("click", () => document.getElementById("mapSection")?.scrollIntoView({behavior:"smooth"}));
@@ -226,33 +225,6 @@ function setupNavProfile() {
     if (savedTheme) {
         document.documentElement.setAttribute("data-theme", savedTheme);
         document.querySelectorAll(".theme-btn").forEach(b=>b.classList.toggle("active", b.dataset.theme===savedTheme));
-    }
-}
-
-function setupLocationModal() {
-    const modal = document.getElementById("locationModal");
-    const allowBtn = document.getElementById("locationAllowBtn");
-    const denyBtn = document.getElementById("locationDenyBtn");
-    if (!modal) return;
-    const locationAsked = localStorage.getItem("bs_binmap_location_asked");
-    if (!locationAsked) modal.style.display = "flex";
-    if (allowBtn) {
-        allowBtn.addEventListener("click", () => {
-            localStorage.setItem("bs_binmap_location_asked", "1");
-            modal.style.display = "none";
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => console.log("Location access granted:", pos.coords),
-                    (err) => console.log("Location access denied:", err.message)
-                );
-            }
-        });
-    }
-    if (denyBtn) {
-        denyBtn.addEventListener("click", () => {
-            localStorage.setItem("bs_binmap_location_asked", "1");
-            modal.style.display = "none";
-        });
     }
 }
 
