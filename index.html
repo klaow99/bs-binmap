@@ -25,41 +25,27 @@
             <button id="navCloseBtn" class="nav-close-btn" aria-label="ปิดเมนู">×</button>
         </div>
         <ul class="nav-menu">
-            <li><a href="#" class="nav-item active" data-nav="home" id="navHomeBtn"><span class="nav-ico">🏠</span> Home</a></li>
-            <li><a href="#" class="nav-item" data-nav="map" id="navMapBtn"><span class="nav-ico">🗺️</span> Map</a></li>
-            <li><a href="#" class="nav-item" data-nav="statistics"><span class="nav-ico">📊</span> Statistics</a></li>
-            <li><a href="#" class="nav-item" data-nav="reports"><span class="nav-ico">📋</span> Bin Reports</a></li>
-            <li class="nav-group">
-                <button class="nav-item nav-toggle" aria-expanded="false"><span class="nav-ico">💬</span> Comments <span class="nav-chevron">›</span></button>
-                <ul class="nav-submenu">
-                    <li><a href="#" class="nav-subitem">All Comments</a></li>
-                    <li><a href="#" class="nav-subitem">My Comments</a></li>
-                </ul>
-            </li>
-            <li class="nav-group">
-                <button class="nav-item nav-toggle" aria-expanded="false"><span class="nav-ico">🗑️</span> Bins <span class="nav-chevron">›</span></button>
-                <ul class="nav-submenu">
-                    <li><a href="#" class="nav-subitem">All Bins</a></li>
-                    <li><a href="#" class="nav-subitem">Add Bin</a></li>
-                </ul>
-            </li>
-            <li><a href="#" class="nav-item" data-nav="settings"><span class="nav-ico">⚙️</span> Settings</a></li>
-            <li><a href="#" class="nav-item" data-nav="report"><span class="nav-ico">🕐</span> Report</a></li>
+            <li class="nav-section-label">Navigate</li>
+            <li><a href="#" class="nav-item active" data-nav="home" id="navHomeBtn"><span class="nav-ico-wrap"><img src="assets/home.png" alt="Home" class="nav-icon-img"></span> Home</a></li>
+            <li><a href="#" class="nav-item" data-nav="map" id="navMapBtn"><span class="nav-ico-wrap"><img src="assets/maps-and-flags.png" alt="Map" class="nav-icon-img"></span> Map <span class="nav-badge" id="navMapBadge">45</span></a></li>
+            <li><a href="#" class="nav-item" data-nav="ai"><span class="nav-ico-wrap"><img src="assets/bot.png" alt="AI" class="nav-icon-img"></span> AI Search <span class="nav-badge" style="background:#7c4dff;">New</span></a></li>
+            <li><a href="#" class="nav-item" data-nav="binTypes"><span class="nav-ico-wrap">♻️</span> ประเภทของถังขยะ</a></li>
+            <li><a href="#" class="nav-item" data-nav="statistics"><span class="nav-ico-wrap"><img src="assets/statistics.png" alt="Stats" class="nav-icon-img"></span> Statistics</a></li>
+            <li><a href="#" class="nav-item" data-nav="report-problem"><span class="nav-ico-wrap"><img src="assets/warning.png" alt="Report" class="nav-icon-img"></span> Report Problem</a></li>
+            <li><a href="#" class="nav-item" data-nav="settings"><span class="nav-ico-wrap"><img src="assets/settings.png" alt="Settings" class="nav-icon-img"></span> Settings</a></li>
         </ul>
-        <!-- Sidebar Profile Footer — สไตล์ตามรูป VAST DS -->
+        <!-- Sidebar Profile Footer -->
         <div class="nav-sidebar-footer">
-            <div class="nav-theme-toggle">
-                <button class="theme-btn active" data-theme="light">☀ Light</button>
-                <button class="theme-btn" data-theme="dark">🌙 Dark</button>
-            </div>
             <div class="nav-profile-card" id="navProfileCard">
-                <img id="navProfileAvatar" class="nav-profile-avatar" src="assets/logo.jpg" alt="avatar">
+                <span class="nav-ico-wrap"><img src="assets/user.png" alt="User" class="nav-icon-img" style="width:20px;height:20px;"></span>
                 <div class="nav-profile-info">
+                    <span class="nav-ico" style="font-size:0.7rem;">●</span>
                     <span id="navProfileName" class="nav-profile-name">Guest</span>
-                    <span id="navProfileEmail" class="nav-profile-email">-</span>
+                    <span id="navProfileEmail" class="nav-profile-email" style="display:none;">-</span>
                 </div>
+                <img id="navProfileAvatar" class="nav-profile-avatar" src="assets/logo.jpg" alt="avatar" style="margin-left:auto;">
             </div>
-            <button id="navEditProfileBtn" class="nav-edit-profile-btn">✏️ แก้ไขโปรไฟล์</button>
+            <button id="navEditProfileBtn" class="nav-edit-profile-btn" data-i18n="editProfile">✏️ แก้ไขโปรไฟล์</button>
             <!-- Inline Edit Form -->
             <form id="navProfileEditForm" class="nav-profile-edit-form" style="display:none;">
                 <div class="nav-edit-avatar-wrap" id="navEditAvatarWrap">
@@ -95,16 +81,16 @@
 
         <div class="header-center">
             <div class="search-box">
-                <span class="search-box-icon">🔍</span>
-                <input type="text" id="searchInput" class="search-box-input" placeholder="ค้นหาถังขยะ สถานที่ หรือหมายเลขถัง..." autocomplete="off">
+                <span class="search-box-icon"><img src="assets/world.png" alt="search" style="width:18px;height:18px;object-fit:contain;display:block;"></span>
+                <input type="text" id="searchInput" class="search-box-input" placeholder="ค้นหาประเภทของถังขยะ..." autocomplete="off">
                 <button id="searchBtn" class="search-btn" aria-label="ค้นหา"><span class="search-btn-label">ค้นหา</span></button>
             </div>
 
             <div id="searchSuggestions" class="search-suggestions">
-                <button class="suggest-chip" data-query="โรงอาหาร">🗑️ ถังใกล้โรงอาหาร</button>
-                <button class="suggest-chip" data-query="สนามฟุตบอล">⚽ ถังใกล้สนามฟุตบอล</button>
-                <button class="suggest-chip" data-query="สนามบาส">🏀 ถังใกล้สนามบาส</button>
-                <button class="suggest-chip" data-query="รีไซเคิล">♻️ หาถังรีไซเคิล</button>
+                <button class="suggest-chip" data-query="ขยะเปียก">🟢 ค้นหาถังขยะเปียก</button>
+                <button class="suggest-chip" data-query="ขยะรีไซเคิล">🟡 ค้นหาถังขยะรีไซเคิล</button>
+                <button class="suggest-chip" data-query="ขยะทั่วไป">🔵 ค้นหาถังขยะทั่วไป</button>
+                <button class="suggest-chip" data-query="ขยะอันตราย">🔴 ค้นหาถังขยะอันตราย</button>
             </div>
 
             <div id="searchResults" class="search-results-dropdown" style="display:none;"></div>
@@ -136,6 +122,86 @@
             <button id="heroCTA" class="hero-cta">ดูแผนที่ ↓</button>
         </div>
         <div class="hero-scroll-hint">เลื่อนลง</div>
+    </section>
+
+    <!-- Bin Types Full Page — พื้นอ่อน 4 Card -->
+    <section id="binTypesPage" class="bin-types-page" style="display:none;">
+        <button class="bin-types-close" id="binTypesClose">×</button>
+        <div class="bin-types-header">
+            <div class="bin-types-kicker">♻️ ประเภทของถังขยะ</div>
+            <h2 class="bin-types-title">รู้ว่าขยะประเภทไหน ควรทิ้งลงถังอะไร</h2>
+            <p class="bin-types-subtitle">แยกให้ถูกสี ถูกประเภท ช่วยลดขยะและรักษาสิ่งแวดล้อม</p>
+        </div>
+        <div class="bin-types-grid">
+            <div class="bin-type-col col-green">
+                <div class="bin-type-badge">🟢 สีเขียว</div>
+                <img src="assets/bin-green.png" alt="ถังขยะเปียก" class="bin-type-img">
+                <div class="bin-type-name">ขยะเปียก</div>
+                <p class="bin-type-desc">ขยะย่อยสลายได้ นำไปทำปุ๋ยหมักได้</p>
+                <ul class="bin-type-examples">
+                    <li>เศษอาหาร เปลือกผลไม้ เศษเนื้อ</li>
+                    <li>เศษผัก ก้างปลา เปลือกไข่</li>
+                    <li>ใบไม้ เศษหญ้า กิ่งไม้เล็ก</li>
+                    <li>กากกาแฟ ถุงชา</li>
+                    <li>เศษขนมปัง ข้าวบูด</li>
+                </ul>
+                <div class="bin-type-actions">
+                    <button class="bin-type-btn outline" onclick="document.getElementById('binTypesPage').style.display='none';">ดูรายละเอียด</button>
+                    <button class="bin-type-btn solid green" onclick="document.getElementById('binTypesPage').style.display='none'; document.getElementById('searchInput').value='ขยะเปียก'; document.getElementById('mapSection').scrollIntoView({behavior:'smooth'}); setTimeout(()=>document.getElementById('searchInput').dispatchEvent(new Event('input')),300);">ค้นหาถังบนแผนที่</button>
+                </div>
+            </div>
+            <div class="bin-type-col col-blue">
+                <div class="bin-type-badge blue">🔵 สีน้ำเงิน</div>
+                <img src="assets/bin-blue.png" alt="ถังขยะรีไซเคิล" class="bin-type-img">
+                <div class="bin-type-name">ขยะรีไซเคิล</div>
+                <p class="bin-type-desc">ขยะที่นำกลับมาใช้ใหม่ได้</p>
+                <ul class="bin-type-examples">
+                    <li>กระดาษ ขวดพลาสติก PET</li>
+                    <li>ขวดแก้ว กระป๋องโลหะ อลูมิเนียม</li>
+                    <li>กล่องนม ถุงพลาสติกสะอาด</li>
+                    <li>หนังสือพิมพ์ นิตยสาร ลังกระดาษ</li>
+                    <li>ขวดแชมพู แกลลอนพลาสติก</li>
+                </ul>
+                <div class="bin-type-actions">
+                    <button class="bin-type-btn outline" onclick="document.getElementById('binTypesPage').style.display='none';">ดูรายละเอียด</button>
+                    <button class="bin-type-btn solid blue" onclick="document.getElementById('binTypesPage').style.display='none'; document.getElementById('searchInput').value='ขยะรีไซเคิล'; document.getElementById('mapSection').scrollIntoView({behavior:'smooth'}); setTimeout(()=>document.getElementById('searchInput').dispatchEvent(new Event('input')),300);">ค้นหาถังบนแผนที่</button>
+                </div>
+            </div>
+            <div class="bin-type-col col-yellow">
+                <div class="bin-type-badge yellow">🟡 สีเหลือง</div>
+                <img src="assets/bin-yellow.png" alt="ถังขยะทั่วไป" class="bin-type-img">
+                <div class="bin-type-name">ขยะทั่วไป</div>
+                <p class="bin-type-desc">ขยะย่อยสลายยาก ไม่คุ้มรีไซเคิล</p>
+                <ul class="bin-type-examples">
+                    <li>ถุงพลาสติกเปื้อน เศษผ้า</li>
+                    <li>โฟม ซองขนม ถุงวิบวับ</li>
+                    <li>ทิชชู่ใช้แล้ว ผ้าอนามัย</li>
+                    <li>ซองกาแฟ หลอดพลาสติก</li>
+                    <li>เศษเซรามิก แก้วแตกห่อแล้ว</li>
+                </ul>
+                <div class="bin-type-actions">
+                    <button class="bin-type-btn outline" onclick="document.getElementById('binTypesPage').style.display='none';">ดูรายละเอียด</button>
+                    <button class="bin-type-btn solid yellow" onclick="document.getElementById('binTypesPage').style.display='none'; document.getElementById('searchInput').value='ขยะทั่วไป'; document.getElementById('mapSection').scrollIntoView({behavior:'smooth'}); setTimeout(()=>document.getElementById('searchInput').dispatchEvent(new Event('input')),300);">ค้นหาถังบนแผนที่</button>
+                </div>
+            </div>
+            <div class="bin-type-col col-red">
+                <div class="bin-type-badge red">🔴 สีแดง</div>
+                <img src="assets/bin-red.png" alt="ถังขยะอันตราย" class="bin-type-img">
+                <div class="bin-type-name">ขยะอันตราย</div>
+                <p class="bin-type-desc">ขยะที่มีสารอันตราย ต้องแยกทิ้ง</p>
+                <ul class="bin-type-examples">
+                    <li>ถ่านไฟฉาย แบตเตอรี่ ถ่านลิเธียม</li>
+                    <li>หลอดไฟ กระป๋องสเปรย์ สีสเปรย์</li>
+                    <li>ยาหมดอายุ สารเคมี น้ำยาล้างห้องน้ำ</li>
+                    <li>ตลับหมึกพิมพ์ โทนเนอร์</li>
+                    <li>อุปกรณ์อิเล็กทรอนิกส์เล็ก</li>
+                </ul>
+                <div class="bin-type-actions">
+                    <button class="bin-type-btn outline" onclick="document.getElementById('binTypesPage').style.display='none';">ดูรายละเอียด</button>
+                    <button class="bin-type-btn solid red" onclick="document.getElementById('binTypesPage').style.display='none'; document.getElementById('searchInput').value='ขยะอันตราย'; document.getElementById('mapSection').scrollIntoView({behavior:'smooth'}); setTimeout(()=>document.getElementById('searchInput').dispatchEvent(new Event('input')),300);">ค้นหาถังบนแผนที่</button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <main class="content-area" id="mapSection">
@@ -336,6 +402,62 @@
         </div>
     </div>
 
+    <!-- AI Chatbot Full Page — แบบ Gemini -->
+    <div id="aiChatPage" class="ai-chat-page" style="display:none;">
+        <button class="ai-chat-close" id="aiChatClose" aria-label="ปิด">✕</button>
+        <div class="ai-chat-glow"></div>
+        <div class="ai-chat-center">
+            <h1 class="ai-chat-title">ถามมาได้เลย <span id="aiChatUser">คุณ Guest</span></h1>
+            <div class="ai-chat-bar">
+                <button class="ai-chat-plus" id="aiChatPlus" title="แนบรูปภาพ">＋</button>
+                <input type="file" id="aiChatFile" accept="image/*" style="display:none;">
+                <input type="text" id="aiChatInput" class="ai-chat-input" placeholder="ถาม AI BINMAP">
+            </div>
+            <div id="aiAttachPreview" class="ai-attach-preview" style="display:none;"></div>
+            <div id="aiChatHistory" class="ai-chat-history"></div>
+        </div>
+    </div>
+    <!-- Statistics Modal -->
+    <div id="statsModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container" style="max-width:520px;">
+            <div class="modal-header"><h3>📊 Statistics</h3><button class="close-modal-x" data-close="statsModal">&times;</button></div>
+            <div class="modal-body" id="statsBody"><p style="color:var(--text-muted);">กำลังโหลด...</p></div>
+        </div>
+    </div>
+    <!-- Comments Modal -->
+    <div id="commentsModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container" style="max-width:560px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
+            <div class="modal-header"><h3>💬 ความคิดเห็นทั้งหมด</h3><button class="close-modal-x" data-close="commentsModal">&times;</button></div>
+            <div class="modal-body" id="commentsModalBody" style="overflow-y:auto; max-height:60vh;"></div>
+        </div>
+    </div>
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container" style="max-width:480px;">
+            <div class="modal-header"><h3>🚨 Report a Problem</h3><button class="close-modal-x" data-close="reportModal">&times;</button></div>
+            <div class="modal-body">
+                <form id="reportForm" style="display:flex; flex-direction:column; gap:10px;">
+                    <label class="nav-field-label">ถังขยะ</label>
+                    <select id="reportBinSelect" class="nav-input"><option value="">-- เลือกถัง --</option></select>
+                    <label class="nav-field-label">รายละเอียด</label>
+                    <textarea id="reportText" class="nav-input" rows="3" placeholder="อธิบายปัญหา..." required></textarea>
+                    <button type="submit" class="btn-auth-submit">ส่งรายงาน</button>
+                </form>
+                <div id="reportStatus" style="display:none; margin-top:8px; padding:8px; border-radius:8px; font-size:0.82rem; text-align:center;"></div>
+            </div>
+        </div>
+    </div>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-container" style="max-width:420px;">
+            <div class="modal-header"><h3>⚙️ Settings</h3><button class="close-modal-x" data-close="settingsModal">&times;</button></div>
+            <div class="modal-body" style="gap:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;"><span data-i18n="theme">ธีม</span><div class="nav-theme-toggle" style="width:160px;"><button class="theme-btn active" data-theme="light">☀ Light</button><button class="theme-btn" data-theme="dark">🌙 Dark</button></div></div>
+                <div style="display:flex; justify-content:space-between; align-items:center;"><span data-i18n="language">ภาษา</span><div class="nav-theme-toggle" style="width:160px;"><button class="theme-btn active" data-lang="th">🇹🇭 ไทย</button><button class="theme-btn" data-lang="en">🇬🇧 EN</button></div></div>
+                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center; margin-top:8px;">BS BINMAP v1.0 · โรงเรียนเบญจมราชานุสรณ์</p>
+            </div>
+        </div>
+    </div>
     <!-- Image Viewer Modal -->
     <div id="imageViewerModal" class="image-viewer-backdrop">
         <div class="image-viewer-container">

@@ -99,8 +99,159 @@ function setupNavSidebar() {
             close();
             if (nav === "home") window.scrollTo({top:0, behavior:"smooth"});
             else if (nav === "map") document.getElementById("mapSection")?.scrollIntoView({behavior:"smooth"});
+            else if (nav === "binTypes") { const p=document.getElementById("binTypesPage"); if(p) p.style.display="flex"; }
+            else if (nav === "ai") openAiChat();
+            else if (nav === "statistics") { openModal("statsModal"); loadStats(); }
+            else if (nav === "comments") { openModal("commentsModal"); loadAllComments(); }
+            else if (nav === "report-problem") { openModal("reportModal"); populateReportBins(); }
+            else if (nav === "settings") openModal("settingsModal");
         });
     });
+    // generic modal close
+    document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => closeModal(btn.dataset.close)));
+    document.querySelectorAll(".modal-backdrop").forEach(m => m.addEventListener("click", e => { if (e.target===m) closeModal(m.id); }));
+    function openModal(id){ const m=document.getElementById(id); if(m) m.style.display="flex"; }
+    function closeModal(id){ const m=document.getElementById(id); if(m) m.style.display="none"; }
+    window.openModal = openModal; window.closeModal = closeModal;
+    async function loadStats(){
+        const body=document.getElementById("statsBody");
+        body.innerHTML="กำลังโหลด...";
+        const bins=await loadBinsFromSupabase();
+        const counts={};
+        bins.forEach(b=>counts[b.type]=(counts[b.type]||0)+1);
+        body.innerHTML=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="background:var(--map-tint); padding:16px; border-radius:12px; text-align:center;"><div style="font-size:1.8rem; font-weight:800; color:var(--dark-green);">${bins.length}</div><div style="font-size:0.8rem; color:var(--text-muted);">ถังทั้งหมด</div></div>
+            ${Object.entries(counts).map(([k,v])=>`<div style="background:white; border:1px solid rgba(0,0,0,0.06); padding:14px; border-radius:12px; text-align:center;"><div style="font-size:1.4rem; font-weight:700;">${v}</div><div style="font-size:0.78rem; color:var(--text-muted);">${k}</div></div>`).join("")}
+        </div>`;
+        const badge=document.getElementById("navMapBadge");
+        if(badge) badge.textContent=bins.length;
+    }
+    async function loadAllComments(){
+        const body=document.getElementById("commentsModalBody");
+        body.innerHTML="กำลังโหลด...";
+        const { data, error } = await supabaseClient.from('comments').select('*').order('created_at',{ascending:false}).limit(50);
+        if(error||!data||data.length===0){ body.innerHTML='<p style="text-align:center; color:var(--text-muted);">ยังไม่มีความคิดเห็น</p>'; return; }
+        body.innerHTML=data.map(c=>`<div style="background:var(--bg-light); padding:10px 12px; border-radius:10px; margin-bottom:8px;">
+            <div style="font-size:0.8rem; font-weight:600;">${c.user_name||'User'} <span style="font-weight:400; color:var(--text-muted); font-size:0.7rem;">${new Date(c.created_at).toLocaleString('th-TH')}</span></div>
+            <div style="font-size:0.85rem; margin-top:4px;">${c.text||''}</div>
+            ${c.image_url?`<img src="${c.image_url}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-top:6px;">`:''}
+        </div>`).join("");
+    }
+    function populateReportBins(){
+        const sel=document.getElementById("reportBinSelect");
+        if(sel.options.length>1) return;
+        loadBinsFromSupabase().then(bins=>{
+            bins.forEach(b=>{
+                const o=document.createElement("option");
+                o.value=b.id; o.textContent=`#${b.number} ${b.location} (${b.type})`;
+                sel.appendChild(o);
+            });
+        });
+    }
+    document.getElementById("reportForm")?.addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const binId=document.getElementById("reportBinSelect").value;
+        const text=document.getElementById("reportText").value.trim();
+        const status=document.getElementById("reportStatus");
+        if(!binId||!text) return;
+        const { data:{user} } = await supabaseClient.auth.getUser();
+        if(!user){ status.textContent="กรุณาเข้าสู่ระบบก่อน"; status.style.display="block"; status.style.background="rgba(244,67,54,0.1)"; status.style.color="#C62828"; return; }
+        let name=user.email;
+        try{ const {data:prof}=await supabaseClient.from('profiles').select('full_name').eq('id',user.id).single(); if(prof?.full_name) name=prof.full_name; }catch{}
+        const { error } = await supabaseClient.from('comments').insert({bin_id: binId, user_name: name, text: "[REPORT] "+text});
+        if(error){ status.textContent="ผิดพลาด: "+error.message; status.style.background="rgba(244,67,54,0.1)"; status.style.color="#C62828"; } else { status.textContent="ส่งรายงานสำเร็จ!"; status.style.background="rgba(76,175,80,0.12)"; status.style.color="#2E7D32"; e.target.reset(); }
+        status.style.display="block";
+        setTimeout(()=>status.style.display="none", 2000);
+    });
+    // AI Chat Page (Gemini style)
+    function openAiChat(){
+        const page=document.getElementById("aiChatPage");
+        const userEl=document.getElementById("aiChatUser");
+        const name=document.getElementById("navProfileName")?.textContent||"Guest";
+        if(userEl) userEl.textContent="คุณ "+name;
+        if(page) page.style.display="flex";
+        document.getElementById("aiChatInput")?.focus();
+    }
+    document.getElementById("aiChatClose")?.addEventListener("click", ()=> document.getElementById("aiChatPage").style.display="none");
+    document.getElementById("aiChatPage")?.addEventListener("click", e=>{ if(e.target.id==="aiChatPage") e.currentTarget.style.display="none"; });
+    document.getElementById("aiChatInput")?.addEventListener("keypress", e=>{ if(e.key==="Enter") doAiChat(); });
+    // + ปุ่มแนบรูป
+    let aiAttachedImage = null;
+    document.getElementById("aiChatPlus")?.addEventListener("click", ()=> document.getElementById("aiChatFile")?.click());
+    document.getElementById("aiChatFile")?.addEventListener("change", e=>{
+        const f=e.target.files[0];
+        if(!f || !f.type.startsWith("image/")) return;
+        const rd=new FileReader();
+        rd.onload=ev=>{
+            aiAttachedImage = ev.target.result;
+            const prev=document.getElementById("aiAttachPreview");
+            prev.innerHTML=`<img src="${aiAttachedImage}"><span style="font-size:0.75rem; color:var(--text-muted);">แนบรูปแล้ว • คลิก + เพื่อเปลี่ยน</span><button onclick="aiAttachedImage=null; document.getElementById('aiAttachPreview').style.display='none'; document.getElementById('aiAttachPreview').innerHTML='';" style="margin-left:auto; border:none; background:transparent; color:#D32F2F; cursor:pointer;">✕</button>`;
+            prev.style.display="flex";
+            prev.style.alignItems="center";
+        };
+        rd.readAsDataURL(f);
+    });
+    async function doAiChat(){
+        const input=document.getElementById("aiChatInput");
+        const hist=document.getElementById("aiChatHistory");
+        const q=input.value.trim();
+        if(!q && !aiAttachedImage) return;
+        let userHtml = q ? `<div class="ai-msg user">${q}</div>` : "";
+        if(aiAttachedImage) userHtml += `<div class="ai-msg user" style="padding:6px;"><img src="${aiAttachedImage}" style="max-width:160px; border-radius:10px; display:block;"></div>`;
+        hist.innerHTML+=userHtml;
+        input.value="";
+        document.querySelector(".ai-chat-center")?.classList.add("has-messages");
+        hist.scrollTop=hist.scrollHeight;
+        // typing animation
+        const typingId = "typing-" + Date.now();
+        hist.innerHTML+=`<div id="${typingId}" class="ai-msg bot ai-typing"><span></span><span></span><span></span></div>`;
+        hist.scrollTop=hist.scrollHeight;
+        // Try Gemini API, fallback to local bin search
+        const bins=await loadBinsFromSupabase();
+        let reply="";
+        const apiKey = ""; // ใส่ GEMINI_API_KEY ที่นี่ถ้าต้องการเรียกจริง, ตอนนี้ใช้ local fallback เขียว-ขาว
+        if(apiKey){
+            try{
+                const resp=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
+                    method:"POST", headers:{"Content-Type":"application/json"},
+                    body: JSON.stringify({contents:[{parts:[{text:`คุณคือ AI BINMAP โรงเรียนเบญจมราชานุสรณ์ มีถังขยะ ${bins.length} ใบ ข้อมูล: ${bins.slice(0,15).map(b=>`#${b.number} ${b.type} ที่ ${b.location}`).join(", ")} คำถาม: ${q}` }]}]})
+                });
+                const data=await resp.json();
+                reply=data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            }catch(e){ reply=""; }
+        }
+        if(!reply){
+            const norm=s=>String(s||"").toLowerCase();
+            const scored=bins.map(b=>{
+                let score=0;
+                if(norm(b.type).includes(norm(q))||norm(q).includes(norm(b.type))) score+=10;
+                if(norm(b.location).includes(norm(q))) score+=6;
+                if(String(b.number).includes(q)) score+=8;
+                return {b, score};
+            }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+            if(aiAttachedImage){
+                reply=`ได้รับรูปแล้ว! ถ้าเป็นรูปถังขยะ ลองบอกประเภทหรือสถานที่เพิ่ม เช่น “ถังนี้อยู่ใกล้โรงอาหารไหม”`;
+            } else if(scored.length>0){
+                reply=`พบ ${scored.length} ถังที่ตรงกับ “${q}”:<br>`+scored.map(x=>`• ถัง #${x.b.number} ${x.b.type} ที่ ${x.b.location}`).join("<br>");
+                reply+=`<br><br><button onclick="document.getElementById('aiChatPage').style.display='none'; document.getElementById('searchInput').value='${scored[0].b.type}'; document.getElementById('mapSection').scrollIntoView({behavior:'smooth'}); setTimeout(()=>document.getElementById('searchInput').dispatchEvent(new Event('input')),300);" style="margin-top:8px; padding:6px 14px; border-radius:999px; border:none; background:var(--primary-green); color:white; font-weight:600; cursor:pointer;">ดูบนแผนที่</button>`;
+            } else {
+                reply=`สวัสดีครับ ผม AI BINMAP พร้อมช่วยหาถังขยะ ลองถามเช่น “หาถังรีไซเคิลใกล้โรงอาหาร” หรือ “ถังขยะเปียกอยู่ตรงไหน”`;
+            }
+        }
+        setTimeout(()=>{
+            const typingEl=document.getElementById(typingId);
+            if(typingEl) typingEl.remove();
+            hist.innerHTML+=`<div class="ai-msg bot">${reply}</div>`;
+            hist.scrollTop=hist.scrollHeight;
+            aiAttachedImage=null;
+            document.getElementById("aiAttachPreview").style.display="none";
+            document.getElementById("aiAttachPreview").innerHTML="";
+            document.getElementById("aiChatFile").value="";
+        }, 600);
+    }
+    window.doAiChat = doAiChat;
+    document.getElementById("binTypesClose")?.addEventListener("click", ()=> document.getElementById("binTypesPage").style.display="none");
+    document.getElementById("binTypesPage")?.addEventListener("click", e=>{ if(e.target.id==="binTypesPage") e.currentTarget.style.display="none"; });
     // Top logo -> Home
     const topLogo = document.getElementById("topLogoHome");
     if (topLogo) {
@@ -142,19 +293,25 @@ function setupNavProfile() {
         let avatar = local?.avatarDataUrl || null;
         let birthday = local?.birthday || "";
         let sid = local?.studentId || "";
-        // try supabase profile for avatar/name
+        // try supabase profile for avatar/name + new fields
         if (user) {
-            const { data: prof } = await supabaseClient.from('profiles').select('full_name,avatar_url').eq('id', user.id).single();
-            if (prof?.full_name && !local?.nickname) displayName = prof.full_name;
-            if (prof?.avatar_url && !avatar) avatar = prof.avatar_url;
+            const { data: prof } = await supabaseClient.from('profiles').select('full_name,avatar_url,nickname,birthday,student_id').eq('id', user.id).single();
+            if (prof) {
+                if (prof.nickname && !local?.nickname) displayName = prof.nickname;
+                else if (prof.full_name && !local?.nickname) displayName = prof.full_name;
+                if (prof.avatar_url && !avatar) avatar = prof.avatar_url;
+                if (prof.birthday) birthday = prof.birthday;
+                if (prof.student_id) sid = prof.student_id;
+            }
             email = user.email;
         }
         if (avatar) { avatarEl.src = avatar; avatarPreview.src = avatar; } else { avatarEl.src = "assets/logo.jpg"; avatarPreview.src = "assets/logo.jpg"; }
         nameEl.textContent = displayName;
         emailEl.textContent = email;
         nickInput.value = local?.nickname || "";
-        bdayInput.value = birthday;
-        sidInput.value = sid;
+        // prefer supabase value if exists
+        if (birthday) bdayInput.value = birthday;
+        if (sid) sidInput.value = sid;
     }
     refresh();
     supabaseClient.auth.onAuthStateChange(() => refresh());
@@ -207,52 +364,70 @@ function setupNavProfile() {
         }
         const toSave = { nickname, birthday, studentId, avatarDataUrl, email: (await supabaseClient.auth.getUser()).data.user?.email || "" };
         saveLocal(toSave);
-        statusEl.textContent="บันทึกสำเร็จ!";
-        statusEl.style.display="block";
-        statusEl.style.background="rgba(76,175,80,0.12)";
-        statusEl.style.color="#2E7D32";
+        // try save to Supabase (all-in-one)
+        try {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+                const payload = { id: user.id, nickname: nickname || null, birthday: birthday || null, student_id: studentId || null };
+                if (avatarDataUrl && avatarDataUrl.startsWith("http")) payload.avatar_url = avatarDataUrl;
+                const { error } = await supabaseClient.from('profiles').upsert(payload, {onConflict:'id'});
+                if (error) {
+                    console.warn("profiles upsert (need SQL):", error.message);
+                    statusEl.textContent="บันทึก Local สำเร็จ (Supabase ยังไม่มีคอลัมน์ nickname/birthday/student_id — รัน SQL ใน dashboard ก่อน)";
+                    statusEl.style.display="block";
+                    statusEl.style.background="rgba(255,152,0,0.12)";
+                    statusEl.style.color="#E65100";
+                } else {
+                    statusEl.textContent="บันทึกสำเร็จ (Supabase)!";
+                    statusEl.style.display="block";
+                    statusEl.style.background="rgba(76,175,80,0.12)";
+                    statusEl.style.color="#2E7D32";
+                }
+            } else {
+                statusEl.textContent="บันทึกสำเร็จ! (Local — ล็อกอินเพื่อซิงค์ Supabase)";
+                statusEl.style.display="block";
+                statusEl.style.background="rgba(76,175,80,0.12)";
+                statusEl.style.color="#2E7D32";
+            }
+        } catch(e){
+            statusEl.textContent="บันทึก Local สำเร็จ";
+            statusEl.style.display="block";
+        }
         pendingFile=null;
-        setTimeout(()=>{ form.style.display="none"; statusEl.style.display="none"; refresh(); }, 900);
+        setTimeout(()=>{ form.style.display="none"; statusEl.style.display="none"; refresh(); }, 1600);
     });
-    // Light/Dark toggle (visual only, store preference)
-    document.querySelectorAll(".theme-btn").forEach(b => b.addEventListener("click", () => {
-        document.querySelectorAll(".theme-btn").forEach(x=>x.classList.remove("active"));
-        b.classList.add("active");
-        localStorage.setItem("bs_binmap_theme", b.dataset.theme);
-        document.documentElement.setAttribute("data-theme", b.dataset.theme);
-    }));
-    const savedTheme = localStorage.getItem("bs_binmap_theme");
-    if (savedTheme) {
-        document.documentElement.setAttribute("data-theme", savedTheme);
-        document.querySelectorAll(".theme-btn").forEach(b=>b.classList.toggle("active", b.dataset.theme===savedTheme));
+    // Theme (moved to Settings)
+    function applyTheme(theme){
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem("bs_binmap_theme", theme);
+        document.querySelectorAll(".theme-btn[data-theme]").forEach(b=>b.classList.toggle("active", b.dataset.theme===theme));
     }
-}
-
-function setupSidebarDrag() {
-    const sidebar = document.getElementById("sidebar");
-    const handle = document.getElementById("sidebarDragHandle");
-    if (!sidebar || !handle) return;
-    let isDragging = false;
-    let startX, startY, startLeft, startTop;
-    handle.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        sidebar.classList.add("dragging");
-        const rect = sidebar.getBoundingClientRect();
-        startX = e.clientX; startY = e.clientY;
-        startLeft = rect.left; startTop = rect.top;
-        e.preventDefault();
-    });
-    document.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        sidebar.style.position = "fixed";
-        sidebar.style.left = Math.max(0, Math.min(startLeft + e.clientX - startX, window.innerWidth - sidebar.offsetWidth)) + "px";
-        sidebar.style.top = Math.max(0, Math.min(startTop + e.clientY - startY, window.innerHeight - sidebar.offsetHeight)) + "px";
-        sidebar.style.right = "auto";
-        sidebar.style.bottom = "auto";
-    });
-    document.addEventListener("mouseup", () => {
-        if (isDragging) { isDragging = false; sidebar.classList.remove("dragging"); }
-    });
+    document.querySelectorAll(".theme-btn[data-theme]").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.theme)));
+    const savedTheme = localStorage.getItem("bs_binmap_theme") || "light";
+    applyTheme(savedTheme);
+    // Language TH/EN
+    const i18nDict = {
+        th: { home:"Home", map:"Map", ai:"AI Search", stats:"Statistics", comments:"Comments", report:"Report a Problem", settings:"Settings", theme:"ธีม", language:"ภาษา", editProfile:"✏️ แก้ไขโปรไฟล์", searchPlaceholder:"ค้นหาประเภทของถังขยะ...", heroSubtitle:"โรงเรียนเบญจมราชานุสรณ์" },
+        en: { home:"Home", map:"Map", ai:"AI Search", stats:"Statistics", comments:"Comments", report:"Report a Problem", settings:"Settings", theme:"Theme", language:"Language", editProfile:"✏️ Edit Profile", searchPlaceholder:"Search bin type...", heroSubtitle:"Benjamarachanusorn School" }
+    };
+    function applyLang(lang){
+        localStorage.setItem("bs_binmap_lang", lang);
+        document.documentElement.setAttribute("lang", lang);
+        document.querySelectorAll(".theme-btn[data-lang]").forEach(b=>b.classList.toggle("active", b.dataset.lang===lang));
+        const d=i18nDict[lang]||i18nDict.th;
+        const setText=(sel, txt)=>{ const el=document.querySelector(sel); if(el) el.textContent=txt; };
+        // nav
+        const navMap={home:d.home, map:d.map, ai:d.ai, statistics:d.stats, comments:d.comments, "report-problem":d.report, settings:d.settings};
+        document.querySelectorAll(".nav-item[data-nav]").forEach(a=>{ const k=a.dataset.nav; if(navMap[k]) a.childNodes.forEach(n=>{ if(n.nodeType===3 && n.textContent.trim()) n.textContent=" "+navMap[k]; }); });
+        document.querySelectorAll("[data-i18n='theme']").forEach(el=>el.textContent=d.theme);
+        document.querySelectorAll("[data-i18n='language']").forEach(el=>el.textContent=d.language);
+        document.querySelectorAll("[data-i18n='editProfile']").forEach(el=>el.textContent=d.editProfile);
+        const searchInput=document.getElementById("searchInput"); if(searchInput) searchInput.placeholder=d.searchPlaceholder;
+        const heroSub=document.querySelector(".hero-subtitle"); if(heroSub) heroSub.textContent=d.heroSubtitle;
+    }
+    document.querySelectorAll(".theme-btn[data-lang]").forEach(b=> b.addEventListener("click", ()=> applyLang(b.dataset.lang)));
+    const savedLang = localStorage.getItem("bs_binmap_lang") || "th";
+    applyLang(savedLang);
 }
 
 function setupImageViewer() {
